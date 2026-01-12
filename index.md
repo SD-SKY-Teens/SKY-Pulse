@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Welcome to SKY-Pulse
-permalink: /
+permalink: /sky-pulse
 ---
 
 ## Welcome to SKY-Pulse Hours Tracker
