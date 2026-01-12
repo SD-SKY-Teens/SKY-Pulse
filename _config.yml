@@ -18,3 +18,4 @@ plugins:
 header_pages:
   - navigation/search.md
   - navigation/about.md
+  - navigation/hours-tracker.md
