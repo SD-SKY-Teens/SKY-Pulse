@@ -1,16 +1,20 @@
 title: SKY-Pulse
 description: "Your application description"
-owner_name: Your Name
-github_username: your-username
+owner_name: Rudra Joshi
+github_username: RudraBJoshi 
 github_repo: "SKY-Pulse"
-baseurl: ""
+
+# If you DON'T have a custom domain, use the repo name below:
+baseurl: "/SKY-Pulse" 
 future: true
 remote_theme: pages-themes/cayman
+
 plugins:
   - jekyll-remote-theme
   - jekyll-include-cache
   - jekyll-redirect-from
   - jekyll-seo-tag
+
 header_pages:
   - navigation/search.md
   - navigation/about.md
