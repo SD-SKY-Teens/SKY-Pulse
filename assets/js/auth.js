@@ -12,13 +12,13 @@ function initializeAuth() {
         // Create default admin account
         const defaultAdmin = {
             username: 'admin',
-            password: hashPassword('admin123'), // Change this default password
+            password: hashPassword('5udh@r5h@n_Kr1y@'),
             name: 'Administrator',
             createdAt: new Date().toISOString()
         };
         admins.push(defaultAdmin);
         saveAdmins(admins);
-        console.log('Default admin created: username=admin, password=admin123');
+        console.log('Default admin created: username=admin');
     }
 }
 
