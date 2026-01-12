@@ -73,8 +73,8 @@ Track member attendance and hours with our simple session-based logging system.
 ### Quick Access
 
 <div class="quick-access-buttons">
-  <a href="/hours-tracker/" class="btn-calm-primary">📊 Hours Tracker</a>
-  <a href="/about/" class="btn-calm-secondary">ℹ️ View About</a>
+  <a href="/SKY-Pulse/hours-tracker/" class="btn-calm-primary">📊 Hours Tracker</a>
+  <a href="/SKY-Pulse/about/" class="btn-calm-secondary">ℹ️ View About</a>
 </div>
 
 ### How It Works
