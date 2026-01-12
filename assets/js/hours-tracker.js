@@ -10,6 +10,118 @@ const HOURS_PER_SESSION = 0.5;
 let students = [];
 let events = [];
 
+// Custom Popup System
+function showCustomPopup(options) {
+    return new Promise((resolve) => {
+        const overlay = document.getElementById('customPopupOverlay');
+        const popup = document.getElementById('customPopup');
+        const icon = document.getElementById('popupIcon');
+        const title = document.getElementById('popupTitle');
+        const message = document.getElementById('popupMessage');
+        const inputContainer = document.getElementById('popupInputContainer');
+        const buttonsContainer = document.getElementById('popupButtons');
+
+        // Set icon
+        icon.textContent = options.icon || '💭';
+
+        // Set title
+        title.textContent = options.title || '';
+
+        // Set message
+        message.textContent = options.message || '';
+
+        // Clear previous input
+        inputContainer.innerHTML = '';
+
+        // Add input if needed
+        if (options.input) {
+            const input = document.createElement('input');
+            input.type = options.inputType || 'text';
+            input.className = 'custom-popup-input';
+            input.placeholder = options.placeholder || '';
+            input.value = options.defaultValue || '';
+            input.id = 'customPopupInput';
+            inputContainer.appendChild(input);
+
+            // Focus input after a short delay
+            setTimeout(() => input.focus(), 100);
+        }
+
+        // Clear previous buttons
+        buttonsContainer.innerHTML = '';
+
+        // Add buttons
+        options.buttons.forEach(button => {
+            const btn = document.createElement('button');
+            btn.className = `custom-popup-btn ${button.primary ? 'custom-popup-btn-primary' : 'custom-popup-btn-secondary'}`;
+            btn.textContent = button.text;
+            btn.onclick = () => {
+                overlay.style.display = 'none';
+                if (options.input) {
+                    const inputValue = document.getElementById('customPopupInput').value;
+                    resolve(button.value === true ? inputValue : button.value);
+                } else {
+                    resolve(button.value);
+                }
+            };
+            buttonsContainer.appendChild(btn);
+        });
+
+        // Show popup
+        overlay.style.display = 'block';
+
+        // Close on overlay click
+        overlay.onclick = (e) => {
+            if (e.target === overlay) {
+                overlay.style.display = 'none';
+                resolve(false);
+            }
+        };
+    });
+}
+
+// Custom Alert
+async function customAlert(message, title = 'Notice', icon = '✨') {
+    await showCustomPopup({
+        icon: icon,
+        title: title,
+        message: message,
+        buttons: [
+            { text: 'OK', value: true, primary: true }
+        ]
+    });
+}
+
+// Custom Confirm
+async function customConfirm(message, title = 'Confirm', icon = '❓') {
+    return await showCustomPopup({
+        icon: icon,
+        title: title,
+        message: message,
+        buttons: [
+            { text: 'Cancel', value: false, primary: false },
+            { text: 'Confirm', value: true, primary: true }
+        ]
+    });
+}
+
+// Custom Prompt
+async function customPrompt(message, title = 'Input', defaultValue = '', placeholder = '', icon = '✏️') {
+    return await showCustomPopup({
+        icon: icon,
+        title: title,
+        message: message,
+        input: true,
+        inputType: 'text',
+        defaultValue: defaultValue,
+        placeholder: placeholder,
+        buttons: [
+            { text: 'Cancel', value: null, primary: false },
+            { text: 'OK', value: true, primary: true }
+        ]
+    });
+}
+
 // Load data from localStorage
 function loadData() {
     const studentsData = localStorage.getItem(STUDENTS_KEY);
@@ -146,14 +258,14 @@ function closeViewEventsModal() {
 }
 
 // Add new student
-function addStudent(event) {
+async function addStudent(event) {
     event.preventDefault();
 
     const name = document.getElementById('studentName').value.trim();
     const email = document.getElementById('studentEmail').value.trim();
 
     if (!name) {
-        alert('Please enter a student name');
+        await customAlert('Please enter a student name', 'Missing Information', '⚠️');
         return;
     }
 
@@ -173,15 +285,15 @@ function addStudent(event) {
 }
 
 // Edit student
-function editStudent(studentId) {
+async function editStudent(studentId) {
     const student = students.find(s => s.id === studentId);
     if (!student) return;
 
-    const newName = prompt('Enter new name:', student.name);
+    const newName = await customPrompt('Enter new name:', 'Edit Student', student.name, 'Student name', '👤');
     if (newName && newName.trim()) {
         student.name = newName.trim();
 
-        const newEmail = prompt('Enter new email (optional):', student.email || '');
+        const newEmail = await customPrompt('Enter new email (optional):', 'Edit Email', student.email || '', 'Email address', '📧');
         student.email = newEmail ? newEmail.trim() : '';
 
         saveData();
@@ -190,11 +302,12 @@ function editStudent(studentId) {
 }
 
 // Delete student
-function deleteStudent(studentId) {
+async function deleteStudent(studentId) {
     const student = students.find(s => s.id === studentId);
     if (!student) return;
 
-    if (confirm(`Are you sure you want to delete ${student.name}? This will remove all their hours and cannot be undone.`)) {
+    const confirmed = await customConfirm(`Are you sure you want to delete ${student.name}? This will remove all their hours and cannot be undone.`, 'Delete Student', '🗑️');
+    if (confirmed) {
         students = students.filter(s => s.id !== studentId);
         saveData();
         renderStudents();
@@ -224,7 +337,7 @@ function populateStudentCheckboxes() {
 }
 
 // Add special event
-function addEvent(event) {
+async function addEvent(event) {
     event.preventDefault();
 
     const name = document.getElementById('eventName').value.trim();
@@ -232,7 +345,7 @@ function addEvent(event) {
     const hours = parseFloat(document.getElementById('eventHours').value);
 
     if (!name || !hours) {
-        alert('Please fill in all required fields');
+        await customAlert('Please fill in all required fields', 'Missing Information', '⚠️');
         return;
     }
 
@@ -249,7 +362,7 @@ function addEvent(event) {
     });
 
     if (selectedStudents.length === 0) {
-        alert('Please select at least one student');
+        await customAlert('Please select at least one student', 'No Students Selected', '⚠️');
         return;
     }
 
@@ -281,7 +394,7 @@ function addEvent(event) {
     updateStatistics();
     closeAddEventModal();
 
-    alert(`Event "${name}" created successfully! ${hours} hours awarded to ${selectedStudents.length} student(s).`);
+    await customAlert(`Event "${name}" created successfully! ${hours} hours awarded to ${selectedStudents.length} student(s).`, 'Success', '🎉');
 }
 
 // View events
@@ -325,10 +438,27 @@ function viewEvents() {
 }
 
 // Delete event
-function deleteEvent(eventId) {
-    if (confirm('Are you sure you want to delete this event? Note: This will NOT remove hours already awarded to students.')) {
+async function deleteEvent(eventId) {
+    const event = events.find(e => e.id === eventId);
+    if (!event) return;
+
+    const confirmed = await customConfirm(`Are you sure you want to delete this event? This will revoke ${event.hours} hours from ${event.students.length} student(s).`, 'Delete Event', '🗑️');
+    if (confirmed) {
+        // Revoke hours from students who received them from this event
+        event.students.forEach(eventStudent => {
+            const student = students.find(s => s.id === eventStudent.id);
+            if (student) {
+                // Convert hours to sessions and remove them
+                const sessionsToRemove = Math.round(event.hours / HOURS_PER_SESSION);
+                student.sessions = Math.max(0, student.sessions - sessionsToRemove);
+                student.totalHours = student.sessions * HOURS_PER_SESSION;
+            }
+        });
+
+        // Remove the event
         events = events.filter(e => e.id !== eventId);
         saveData();
+        renderStudents();
         viewEvents();
         updateStatistics();
     }
@@ -355,17 +485,17 @@ function exportData() {
 }
 
 // Import data
-function importData() {
+async function importData() {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'application/json';
 
-    input.onchange = (e) => {
+    input.onchange = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
 
         const reader = new FileReader();
-        reader.onload = (event) => {
+        reader.onload = async (event) => {
             try {
                 const data = JSON.parse(event.target.result);
 
@@ -373,16 +503,88 @@ function importData() {
                     throw new Error('Invalid data format');
                 }
 
-                if (confirm('Import data? This will replace all current data. Make sure you have exported your current data first!')) {
-                    students = data.students || [];
-                    events = data.events || [];
+                // Calculate merge statistics
+                const importedStudents = data.students || [];
+                const importedEvents = data.events || [];
+
+                let newStudents = 0;
+                let updatedStudents = 0;
+                let newEvents = 0;
+                let updatedEvents = 0;
+
+                // Check for duplicates
+                importedStudents.forEach(importStudent => {
+                    const exists = students.find(s => s.id === importStudent.id);
+                    if (exists) {
+                        updatedStudents++;
+                    } else {
+                        newStudents++;
+                    }
+                });
+
+                importedEvents.forEach(importEvent => {
+                    const exists = events.find(e => e.id === importEvent.id);
+                    if (exists) {
+                        updatedEvents++;
+                    } else {
+                        newEvents++;
+                    }
+                });
+
+                // Create confirmation message
+                let message = `Import ${importedStudents.length} students and ${importedEvents.length} events?\n\n`;
+                if (newStudents > 0) message += `• ${newStudents} new student(s)\n`;
+                if (updatedStudents > 0) message += `• ${updatedStudents} student(s) will be updated\n`;
+                if (newEvents > 0) message += `• ${newEvents} new event(s)\n`;
+                if (updatedEvents > 0) message += `• ${updatedEvents} event(s) will be updated\n`;
+                message += `\nExisting duplicates will be replaced with imported versions.`;
+
+                const confirmed = await customConfirm(message, 'Import Data', '📥');
+                if (confirmed) {
+                    // Merge students - replace duplicates, add new ones
+                    const studentMap = new Map();
+
+                    // Add existing students first
+                    students.forEach(student => {
+                        studentMap.set(student.id, student);
+                    });
+
+                    // Import students (will replace duplicates)
+                    importedStudents.forEach(student => {
+                        studentMap.set(student.id, student);
+                    });
+
+                    students = Array.from(studentMap.values());
+
+                    // Merge events - replace duplicates, add new ones
+                    const eventMap = new Map();
+
+                    // Add existing events first
+                    events.forEach(event => {
+                        eventMap.set(event.id, event);
+                    });
+
+                    // Import events (will replace duplicates)
+                    importedEvents.forEach(event => {
+                        eventMap.set(event.id, event);
+                    });
+
+                    events = Array.from(eventMap.values());
+
                     saveData();
                     renderStudents();
                     updateStatistics();
-                    alert('Data imported successfully!');
+
+                    let resultMessage = 'Data imported successfully!\n\n';
+                    if (newStudents > 0) resultMessage += `✓ Added ${newStudents} new student(s)\n`;
+                    if (updatedStudents > 0) resultMessage += `✓ Updated ${updatedStudents} student(s)\n`;
+                    if (newEvents > 0) resultMessage += `✓ Added ${newEvents} new event(s)\n`;
+                    if (updatedEvents > 0) resultMessage += `✓ Updated ${updatedEvents} event(s)`;
+
+                    await customAlert(resultMessage, 'Import Complete', '✅');
                 }
             } catch (error) {
-                alert('Error importing data: ' + error.message);
+                await customAlert('Error importing data: ' + error.message, 'Import Error', '❌');
             }
         };
         reader.readAsText(file);
