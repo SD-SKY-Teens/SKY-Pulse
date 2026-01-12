@@ -4,33 +4,42 @@ title: Welcome to SKY-Pulse
 permalink: /
 ---
 
-## Welcome to SKY-Pulse
+## Welcome to SKY-Pulse Hours Tracker
 
-This is a clean Jekyll site ready for your new application.
+Track member attendance and hours with our simple session-based logging system.
 
-### Getting Started
+### Quick Access
 
-Start building your application by:
+[Hours Tracker](navigation/hours-tracker.md){: .btn .btn-primary}
+[View About](navigation/about.md){: .btn}
 
-1. Adding your content to the `_posts` directory
-2. Creating custom pages in the `navigation` directory
-3. Customizing the site configuration in `_config.yml`
-4. Adding your images to the `images` directory
+### How It Works
 
-### Features
+**Session-Based Tracking**
+- 1 session = 0.5 hours
+- 2 sessions = 1 hour
+- Simple addition and removal of sessions
+- Automatic hour calculation
 
-This site comes with:
+**Features**
+- Add and manage students/members
+- Track sessions and hours for each person
+- Create special events and award bonus hours
+- Export and import data for backup
+- Real-time statistics dashboard
+- Search and filter students
 
-- Jekyll static site generator
-- Responsive Cayman theme
-- Search functionality
-- Clean, production-ready design
-- GitHub Pages deployment ready
-- SEO optimization
+**Special Events**
+- Create named events with descriptions
+- Award custom hours to selected students
+- Keep a history of all events
+- Perfect for competitions, workshops, or special activities
 
-### Next Steps
+### For Administrators
 
-Edit this page to create your homepage, or explore the existing layouts and includes to build your application.
-
-[View Documentation](navigation/about.md){: .btn}
-[Search](navigation/search.md){: .btn .btn-primary}
+Anyone with admin credentials can access the hours tracker to:
+- Add new students
+- Log attendance sessions
+- Create special events
+- View comprehensive statistics
+- Export data for records
