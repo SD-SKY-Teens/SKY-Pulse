@@ -1,26 +1,17 @@
-title: Open Coding 
-description: "Class of 2026"
-owner_name: John Mortensen
-github_username: jm1021 
-github_repo: "student" 
-baseurl: "/student" 
+title: SKY-Pulse
+description: "Your application description"
+owner_name: Your Name
+github_username: your-username
+github_repo: "SKY-Pulse"
+baseurl: ""
 future: true
-remote_theme: pages-themes/hacker
-plugins:
-  - jekyll-remote-theme
-minima:
-  skin: dark
-  social_links:
-    - { platform: github, user_url: "https://github.com/open-coding-society" }
-    - { platform: x, user_url: "https://x.com/Open_Coding" }
-    - { platform: youtube, user_url: "https://www.youtube.com/@OpenCodingSociety" } 
+remote_theme: pages-themes/cayman
 plugins:
   - jekyll-remote-theme
   - jekyll-include-cache
   - jekyll-redirect-from
+  - jekyll-seo-tag
 header_pages:
-  - navigation/blog.md
   - navigation/search.md
   - navigation/about.md
-  - navigation/logintoolkit.md
   
