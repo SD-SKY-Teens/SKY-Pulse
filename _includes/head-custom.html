@@ -7,3 +7,28 @@
 
 <!-- Support for modern browsers -->
 <link rel="icon" type="image/png" href="{{ '/Favicon_New.png' | relative_url }}">
+
+<!-- Meditative Minimal Theme Override -->
+<style>
+  /* Override Cayman theme with meditative gradient */
+  .page-header {
+    background: linear-gradient(135deg, #a8c9c5 0%, #7ba59f 50%, #d4b8a8 100%) !important;
+    background-image: linear-gradient(135deg, #a8c9c5 0%, #7ba59f 50%, #d4b8a8 100%) !important;
+  }
+
+  /* Ensure text remains readable on the new gradient */
+  .project-name,
+  .project-tagline {
+    color: #ffffff !important;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+  }
+
+  /* Update link colors to match meditative theme */
+  .main-content a {
+    color: #7ba59f !important;
+  }
+
+  .main-content a:hover {
+    color: #5d8983 !important;
+  }
+</style>
