@@ -73,7 +73,8 @@ Track member attendance and hours with our simple session-based logging system.
 ### Quick Access
 
 <div class="quick-access-buttons">
-  <a href="/SKY-Pulse/hours-tracker/" class="btn-calm-primary">📊 Hours Tracker</a>
+  <a href="/SKY-Pulse/hours-tracker/" class="btn-calm-primary">📊 Admin Hours Tracker</a>
+  <a href="/SKY-Pulse/student-tracker/" class="btn-calm-primary">🎓 Student Hours View</a>
   <a href="/SKY-Pulse/about/" class="btn-calm-secondary">ℹ️ View About</a>
 </div>
 
@@ -107,3 +108,12 @@ Anyone with admin credentials can access the hours tracker to:
 - Create special events
 - View comprehensive statistics
 - Export data for records
+
+### For Students
+
+Students can view their personal hours information:
+- Check total volunteer hours
+- View session count
+- See events attended
+- Review event history with dates and descriptions
+- Simply enter your name to access your data
