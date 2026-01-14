@@ -371,14 +371,15 @@ async function addEvent(event) {
         return;
     }
 
-    // Create event with the specified date
+    // Create event with the specified date and registration timestamp
     const newEvent = {
         id: Date.now(),
         name: name,
         description: description,
         hours: hours,
         students: selectedStudents,
-        date: new Date(eventDate).toISOString()
+        date: new Date(eventDate).toISOString(),
+        registeredDate: new Date().toISOString()
     };
 
     events.push(newEvent);
@@ -417,11 +418,21 @@ function viewEvents() {
             const eventDiv = document.createElement('div');
             eventDiv.className = 'event-item';
 
-            const dateStr = new Date(event.date).toLocaleDateString('en-US', {
+            const eventDateStr = new Date(event.date).toLocaleDateString('en-US', {
                 year: 'numeric',
                 month: 'short',
                 day: 'numeric'
             });
+
+            const registeredDateStr = event.registeredDate
+                ? new Date(event.registeredDate).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                })
+                : 'N/A';
 
             eventDiv.innerHTML = `
                 <div class="event-header">
@@ -430,7 +441,8 @@ function viewEvents() {
                 </div>
                 ${event.description ? `<p style="margin: 10px 0;">${escapeHtml(event.description)}</p>` : ''}
                 <div style="font-size: 0.9em; color: #718096; margin-top: 10px;">
-                    <strong>Date:</strong> ${dateStr}<br>
+                    <strong>Event Date:</strong> ${eventDateStr}<br>
+                    <strong>Registered:</strong> ${registeredDateStr}<br>
                     <strong>Students (${event.students.length}):</strong> ${event.students.map(s => escapeHtml(s.name)).join(', ')}
                 </div>
                 <button class="btn-sm" style="background: #e53e3e; color: white; margin-top: 10px;" onclick="deleteEvent(${event.id})">Delete Event</button>
