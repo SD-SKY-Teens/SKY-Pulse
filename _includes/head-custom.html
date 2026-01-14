@@ -10,10 +10,23 @@
 
 <!-- Meditative Minimal Theme Override -->
 <style>
+  /* Meditative Color Palette */
+  :root {
+    --primary-calm: #a8c9c5;
+    --primary-deep: #7ba59f;
+    --secondary-soft: #d4b8a8;
+    --bg-serene: #f5f7f6;
+    --bg-card: #ffffff;
+    --text-primary: #4a5d5a;
+    --text-secondary: #7a8c89;
+    --text-light: #a5b5b2;
+    --accent-gentle: #c9d4d2;
+  }
+
   /* Override Cayman theme with meditative gradient */
   .page-header {
-    background: linear-gradient(135deg, #a8c9c5 0%, #7ba59f 50%, #d4b8a8 100%) !important;
-    background-image: linear-gradient(135deg, #a8c9c5 0%, #7ba59f 50%, #d4b8a8 100%) !important;
+    background: linear-gradient(135deg, var(--primary-calm) 0%, var(--primary-deep) 50%, var(--secondary-soft) 100%) !important;
+    background-image: linear-gradient(135deg, var(--primary-calm) 0%, var(--primary-deep) 50%, var(--secondary-soft) 100%) !important;
   }
 
   /* Ensure text remains readable on the new gradient */
@@ -23,12 +36,113 @@
     text-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
   }
 
-  /* Update link colors to match meditative theme */
+  /* Body background - soft serene color */
+  body {
+    background-color: var(--bg-serene) !important;
+    color: var(--text-primary) !important;
+  }
+
+  /* Main content area */
+  .main-content {
+    background-color: var(--bg-card) !important;
+    color: var(--text-primary) !important;
+    border-radius: 16px !important;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08) !important;
+    border: 1px solid var(--accent-gentle) !important;
+  }
+
+  /* Headings with meditative colors */
+  .main-content h1,
+  .main-content h2,
+  .main-content h3,
+  .main-content h4,
+  .main-content h5,
+  .main-content h6 {
+    color: var(--primary-deep) !important;
+    font-weight: 500 !important;
+  }
+
+  /* Paragraph text */
+  .main-content p {
+    color: var(--text-primary) !important;
+    line-height: 1.7 !important;
+  }
+
+  /* Link colors to match meditative theme */
   .main-content a {
-    color: #7ba59f !important;
+    color: var(--primary-deep) !important;
+    text-decoration: none !important;
+    border-bottom: 1px solid var(--accent-gentle) !important;
+    transition: all 0.2s ease !important;
   }
 
   .main-content a:hover {
-    color: #5d8983 !important;
+    color: var(--primary-calm) !important;
+    border-bottom-color: var(--primary-calm) !important;
+  }
+
+  /* Code blocks with meditative styling */
+  .main-content pre,
+  .main-content code {
+    background-color: var(--bg-serene) !important;
+    border: 1px solid var(--accent-gentle) !important;
+    color: var(--text-primary) !important;
+  }
+
+  /* Blockquotes */
+  .main-content blockquote {
+    border-left: 4px solid var(--primary-calm) !important;
+    color: var(--text-secondary) !important;
+    background-color: var(--bg-serene) !important;
+    padding: 1em 1.5em !important;
+    border-radius: 8px !important;
+  }
+
+  /* Lists */
+  .main-content ul,
+  .main-content ol {
+    color: var(--text-primary) !important;
+  }
+
+  /* Horizontal rules */
+  .main-content hr {
+    border-color: var(--accent-gentle) !important;
+    opacity: 0.5 !important;
+  }
+
+  /* Tables */
+  .main-content table {
+    border-color: var(--accent-gentle) !important;
+  }
+
+  .main-content th {
+    background-color: var(--primary-calm) !important;
+    color: white !important;
+    font-weight: 500 !important;
+  }
+
+  .main-content tr:nth-child(even) {
+    background-color: var(--bg-serene) !important;
+  }
+
+  .main-content td,
+  .main-content th {
+    border-color: var(--accent-gentle) !important;
+  }
+
+  /* Site footer */
+  .site-footer {
+    border-top: 2px solid var(--accent-gentle) !important;
+    color: var(--text-secondary) !important;
+    background-color: var(--bg-serene) !important;
+  }
+
+  .site-footer-credits {
+    color: var(--text-secondary) !important;
+  }
+
+  /* Smooth transitions */
+  * {
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease !important;
   }
 </style>
