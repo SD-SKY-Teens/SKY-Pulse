@@ -800,6 +800,10 @@ permalink: /hours-tracker/
         <input type="number" id="eventHours" step="0.5" min="0.5" required>
       </div>
       <div class="form-group">
+        <label for="eventDate">Event Date *</label>
+        <input type="date" id="eventDate" required>
+      </div>
+      <div class="form-group">
         <label>Select Students *</label>
         <div class="checkbox-group" id="studentCheckboxList">
           <!-- Will be populated dynamically -->

@@ -247,6 +247,10 @@ function openAddEventModal() {
     populateStudentCheckboxes();
     document.getElementById('addEventModal').style.display = 'block';
     document.getElementById('addEventForm').reset();
+
+    // Set today's date as default
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('eventDate').value = today;
 }
 
 function closeAddEventModal() {
@@ -343,8 +347,9 @@ async function addEvent(event) {
     const name = document.getElementById('eventName').value.trim();
     const description = document.getElementById('eventDescription').value.trim();
     const hours = parseFloat(document.getElementById('eventHours').value);
+    const eventDate = document.getElementById('eventDate').value;
 
-    if (!name || !hours) {
+    if (!name || !hours || !eventDate) {
         await customAlert('Please fill in all required fields', 'Missing Information', '⚠️');
         return;
     }
@@ -366,14 +371,14 @@ async function addEvent(event) {
         return;
     }
 
-    // Create event
+    // Create event with the specified date
     const newEvent = {
         id: Date.now(),
         name: name,
         description: description,
         hours: hours,
         students: selectedStudents,
-        date: new Date().toISOString()
+        date: new Date(eventDate).toISOString()
     };
 
     events.push(newEvent);
