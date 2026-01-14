@@ -372,13 +372,14 @@ async function addEvent(event) {
     }
 
     // Create event with the specified date and registration timestamp
+    // Use the date string directly to avoid timezone conversion issues
     const newEvent = {
         id: Date.now(),
         name: name,
         description: description,
         hours: hours,
         students: selectedStudents,
-        date: new Date(eventDate).toISOString(),
+        date: eventDate + 'T00:00:00.000Z', // Store as UTC midnight on the selected date
         registeredDate: new Date().toISOString()
     };
 
