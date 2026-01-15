@@ -15,44 +15,48 @@ permalink: /sky-pulse/
 
   .btn-calm-primary {
     background: linear-gradient(135deg, #5b9bd5 0%, #6bb56f 100%);
-    color: white;
+    color: #ffffff;
     padding: 16px 32px;
     border-radius: 12px;
     text-decoration: none;
-    font-weight: 500;
+    font-weight: 600;
     font-size: 1.1em;
     box-shadow: 0 4px 16px rgba(91, 155, 213, 0.3);
     transition: all 0.3s ease;
     display: inline-block;
     letter-spacing: 0.3px;
     border: none;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
   }
 
   .btn-calm-primary:hover {
     transform: translateY(-3px);
     box-shadow: 0 6px 24px rgba(107, 181, 111, 0.4);
     background: linear-gradient(135deg, #6bb56f 0%, #5b9bd5 100%);
+    color: #ffffff;
   }
 
   .btn-calm-secondary {
     background: linear-gradient(135deg, #9b7bb5 0%, #6b5ba6 100%);
-    color: white;
+    color: #ffffff;
     padding: 16px 32px;
     border-radius: 12px;
     text-decoration: none;
-    font-weight: 500;
+    font-weight: 600;
     font-size: 1.1em;
     box-shadow: 0 4px 16px rgba(155, 123, 181, 0.3);
     transition: all 0.3s ease;
     display: inline-block;
     letter-spacing: 0.3px;
     border: none;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
   }
 
   .btn-calm-secondary:hover {
     transform: translateY(-3px);
     box-shadow: 0 6px 24px rgba(107, 91, 166, 0.4);
     background: linear-gradient(135deg, #6b5ba6 0%, #9b7bb5 100%);
+    color: #ffffff;
   }
 
   .dark-mode .btn-calm-primary,

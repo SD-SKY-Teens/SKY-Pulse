@@ -221,64 +221,92 @@ permalink: /hours-tracker/
     box-shadow: 0 4px 24px var(--shadow-soft);
   }
 
-  .student-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 24px;
+  /* Professional Spreadsheet Table */
+  .students-table-container {
     margin-top: 32px;
-  }
-
-  .student-card {
-    background: var(--bg-card);
-    color: var(--text-primary);
-    padding: 28px;
-    border-radius: 16px;
+    overflow-x: auto;
+    border-radius: 12px;
     box-shadow: 0 2px 12px var(--shadow-subtle);
-    border: 2px solid var(--accent-gentle);
-    transition: all 0.3s ease;
-    position: relative;
-    overflow: hidden;
+    border: 1px solid var(--accent-gentle);
   }
 
-  .student-card::before {
-    content: '';
-    position: absolute;
+  .students-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--bg-card);
+  }
+
+  .students-table thead {
+    background: linear-gradient(135deg, #7a9db8 0%, #6ba891 100%);
+    color: white;
+    position: sticky;
     top: 0;
-    left: 0;
-    right: 0;
-    height: 4px;
-    background: linear-gradient(90deg, var(--primary-calm), var(--primary-deep));
-    opacity: 0.7;
+    z-index: 10;
   }
 
-  .student-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 8px 24px var(--shadow-soft);
-    border-color: var(--primary-calm);
-  }
-
-  .student-name {
-    font-size: 1.3em;
+  .students-table th {
+    padding: 16px 20px;
+    text-align: left;
     font-weight: 500;
-    margin-bottom: 12px;
+    font-size: 0.9em;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+  }
+
+  .students-table th:first-child {
+    border-top-left-radius: 12px;
+  }
+
+  .students-table th:last-child {
+    border-top-right-radius: 12px;
+    text-align: right;
+  }
+
+  .students-table tbody tr {
+    border-bottom: 1px solid var(--accent-gentle);
+    transition: all 0.2s ease;
+  }
+
+  .students-table tbody tr:hover {
+    background: var(--bg-serene);
+    box-shadow: inset 0 0 0 1px var(--primary-calm);
+  }
+
+  .students-table tbody tr:last-child {
+    border-bottom: none;
+  }
+
+  .students-table td {
+    padding: 16px 20px;
     color: var(--text-primary);
-    letter-spacing: 0.3px;
+    vertical-align: middle;
   }
 
-  .hours-display {
-    font-size: 2.5em;
-    font-weight: 300;
-    margin: 20px 0;
-    color: var(--primary-deep);
-    letter-spacing: -0.5px;
+  .student-name-cell {
+    font-weight: 500;
+    font-size: 1.05em;
+    color: var(--text-primary);
   }
 
-  .sessions-display {
-    font-size: 1em;
-    opacity: 0.7;
-    margin-bottom: 20px;
+  .student-email-cell {
     color: var(--text-secondary);
-    font-weight: 300;
+    font-size: 0.95em;
+  }
+
+  .hours-cell {
+    font-size: 1.4em;
+    font-weight: 500;
+    color: var(--heart-healing);
+  }
+
+  .sessions-cell {
+    color: var(--text-secondary);
+    font-size: 0.95em;
+  }
+
+  .actions-cell {
+    text-align: right;
   }
 
   .btn-group {
@@ -755,9 +783,9 @@ permalink: /hours-tracker/
   <!-- Search -->
   <input type="text" class="search-box" id="searchBox" placeholder="🔍 Search students by name..." onkeyup="filterStudents()">
 
-  <!-- Students Grid -->
-  <div class="student-grid" id="studentGrid">
-    <!-- Students will be dynamically loaded here -->
+  <!-- Students Table -->
+  <div id="studentGrid">
+    <!-- Students table will be dynamically loaded here -->
   </div>
 </div>
 

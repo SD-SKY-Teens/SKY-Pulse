@@ -146,41 +146,58 @@ function init() {
 
 // Render all students
 function renderStudents() {
-    const grid = document.getElementById('studentGrid');
-    grid.innerHTML = '';
-
+    const container = document.getElementById('studentGrid');
     const filteredStudents = getFilteredStudents();
 
     if (filteredStudents.length === 0) {
-        grid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; padding: 40px;">No students found. Add your first student to get started!</p>';
+        container.innerHTML = '<p style="text-align: center; padding: 40px; color: var(--text-secondary);">No students found. Add your first student to get started!</p>';
         return;
     }
 
+    // Create table structure
+    container.innerHTML = `
+        <div class="students-table-container">
+            <table class="students-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Total Hours</th>
+                        <th>Sessions</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="studentsTableBody">
+                </tbody>
+            </table>
+        </div>
+    `;
+
+    const tbody = document.getElementById('studentsTableBody');
     filteredStudents.forEach(student => {
-        const card = createStudentCard(student);
-        grid.appendChild(card);
+        const row = createStudentRow(student);
+        tbody.appendChild(row);
     });
 }
 
-// Create a student card element
-function createStudentCard(student) {
-    const card = document.createElement('div');
-    card.className = 'student-card';
-    card.innerHTML = `
-        <div class="student-name">${escapeHtml(student.name)}</div>
-        ${student.email ? `<div style="font-size: 0.9em; opacity: 0.8;">${escapeHtml(student.email)}</div>` : ''}
-        <div class="hours-display">${student.totalHours.toFixed(1)} hrs</div>
-        <div class="sessions-display">${student.sessions} sessions</div>
-        <div class="btn-group">
-            <button class="btn-sm btn-add" onclick="addSession(${student.id})">+ Session</button>
-            <button class="btn-sm btn-remove" onclick="removeSession(${student.id})" ${student.sessions === 0 ? 'disabled' : ''}>- Session</button>
-        </div>
-        <div class="btn-group">
-            <button class="btn-sm" style="background: #ed8936; color: white; flex: 1;" onclick="editStudent(${student.id})">Edit</button>
-            <button class="btn-sm" style="background: #e53e3e; color: white; flex: 1;" onclick="deleteStudent(${student.id})">Delete</button>
-        </div>
+// Create a student table row element
+function createStudentRow(student) {
+    const row = document.createElement('tr');
+    row.innerHTML = `
+        <td class="student-name-cell">${escapeHtml(student.name)}</td>
+        <td class="student-email-cell">${student.email ? escapeHtml(student.email) : '<em style="opacity: 0.5;">No email</em>'}</td>
+        <td class="hours-cell">${student.totalHours.toFixed(1)} hrs</td>
+        <td class="sessions-cell">${student.sessions} sessions</td>
+        <td class="actions-cell">
+            <div class="btn-group" style="justify-content: flex-end;">
+                <button class="btn-sm btn-add" onclick="addSession(${student.id})" title="Add Session">+ Session</button>
+                <button class="btn-sm btn-remove" onclick="removeSession(${student.id})" ${student.sessions === 0 ? 'disabled' : ''} title="Remove Session">- Session</button>
+                <button class="btn-sm" style="background: #ed8936; color: white;" onclick="editStudent(${student.id})" title="Edit Student">Edit</button>
+                <button class="btn-sm" style="background: #e53e3e; color: white;" onclick="deleteStudent(${student.id})" title="Delete Student">Delete</button>
+            </div>
+        </td>
     `;
-    return card;
+    return row;
 }
 
 // Add a session to a student
