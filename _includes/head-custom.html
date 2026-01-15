@@ -8,25 +8,36 @@
 <!-- Support for modern browsers -->
 <link rel="icon" type="image/png" href="{{ '/Favicon_New.png' | relative_url }}">
 
-<!-- Meditative Minimal Theme Override -->
+<!-- Chakra-Inspired Meditative Theme Override -->
 <style>
-  /* Meditative Color Palette */
+  /* Chakra Color Palette */
   :root {
-    --primary-calm: #a8c9c5;
-    --primary-deep: #7ba59f;
-    --secondary-soft: #d4b8a8;
-    --bg-serene: #f5f7f6;
+    --root-grounding: #c44e4e;        /* Red - Root Chakra (Grounding) */
+    --solar-warmth: #e6b84d;          /* Yellow - Solar Plexus (Personal Power) */
+    --heart-healing: #6bb56f;         /* Green - Heart Chakra (Healing, Love) */
+    --throat-calm: #5b9bd5;           /* Blue - Throat Chakra (Communication, Calm) */
+    --third-eye: #6b5ba6;             /* Indigo - Third Eye (Intuition) */
+    --crown-consciousness: #9b7bb5;   /* Violet - Crown Chakra (Higher Consciousness) */
+
+    --bg-serene: #f9f6f4;
     --bg-card: #ffffff;
-    --text-primary: #4a5d5a;
-    --text-secondary: #7a8c89;
-    --text-light: #a5b5b2;
-    --accent-gentle: #c9d4d2;
+    --text-primary: #4a4a4a;
+    --text-secondary: #7a7a7a;
+    --text-light: #a5a5a5;
+    --accent-gentle: #e8e2dd;
   }
 
-  /* Override Cayman theme with meditative gradient */
+  /* Override Cayman theme with subtle chakra-inspired gradient */
+  /* Blended, harmonious gradient focusing on calming tones */
   .page-header {
-    background: linear-gradient(135deg, var(--primary-calm) 0%, var(--primary-deep) 50%, var(--secondary-soft) 100%) !important;
-    background-image: linear-gradient(135deg, var(--primary-calm) 0%, var(--primary-deep) 50%, var(--secondary-soft) 100%) !important;
+    background: linear-gradient(135deg,
+      #7a9db8 0%,
+      #6ba891 50%,
+      #9b8fa8 100%) !important;
+    background-image: linear-gradient(135deg,
+      #7a9db8 0%,
+      #6ba891 50%,
+      #9b8fa8 100%) !important;
   }
 
   /* Ensure text remains readable on the new gradient */
@@ -51,14 +62,30 @@
     border: 1px solid var(--accent-gentle) !important;
   }
 
-  /* Headings with meditative colors */
-  .main-content h1,
-  .main-content h2,
-  .main-content h3,
-  .main-content h4,
+  /* Headings with chakra colors */
+  .main-content h1 {
+    color: var(--crown-consciousness) !important;
+    font-weight: 500 !important;
+  }
+
+  .main-content h2 {
+    color: var(--third-eye) !important;
+    font-weight: 500 !important;
+  }
+
+  .main-content h3 {
+    color: var(--throat-calm) !important;
+    font-weight: 500 !important;
+  }
+
+  .main-content h4 {
+    color: var(--heart-healing) !important;
+    font-weight: 500 !important;
+  }
+
   .main-content h5,
   .main-content h6 {
-    color: var(--primary-deep) !important;
+    color: var(--solar-warmth) !important;
     font-weight: 500 !important;
   }
 
@@ -68,30 +95,31 @@
     line-height: 1.7 !important;
   }
 
-  /* Link colors to match meditative theme */
+  /* Link colors - heart chakra for healing connection */
   .main-content a {
-    color: var(--primary-deep) !important;
+    color: var(--heart-healing) !important;
     text-decoration: none !important;
     border-bottom: 1px solid var(--accent-gentle) !important;
     transition: all 0.2s ease !important;
   }
 
   .main-content a:hover {
-    color: var(--primary-calm) !important;
-    border-bottom-color: var(--primary-calm) !important;
+    color: var(--throat-calm) !important;
+    border-bottom-color: var(--throat-calm) !important;
   }
 
-  /* Code blocks with meditative styling */
+  /* Code blocks with chakra styling */
   .main-content pre,
   .main-content code {
     background-color: var(--bg-serene) !important;
     border: 1px solid var(--accent-gentle) !important;
+    border-left: 3px solid var(--third-eye) !important;
     color: var(--text-primary) !important;
   }
 
-  /* Blockquotes */
+  /* Blockquotes - heart chakra for wisdom and love */
   .main-content blockquote {
-    border-left: 4px solid var(--primary-calm) !important;
+    border-left: 4px solid var(--heart-healing) !important;
     color: var(--text-secondary) !important;
     background-color: var(--bg-serene) !important;
     padding: 1em 1.5em !important;
@@ -110,13 +138,13 @@
     opacity: 0.5 !important;
   }
 
-  /* Tables */
+  /* Tables - throat chakra for clarity */
   .main-content table {
     border-color: var(--accent-gentle) !important;
   }
 
   .main-content th {
-    background-color: var(--primary-calm) !important;
+    background: linear-gradient(135deg, var(--throat-calm) 0%, var(--heart-healing) 100%) !important;
     color: white !important;
     font-weight: 500 !important;
   }
