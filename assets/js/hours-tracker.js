@@ -6,6 +6,47 @@ const EVENTS_KEY = 'hoursTracker_events';
 // Session constant: 1 session = 0.5 hours
 const HOURS_PER_SESSION = 0.5;
 
+// Parse date string (YYYY-MM-DD) as local timezone, not UTC
+function parseLocalDate(dateStr) {
+    // Handle both YYYY-MM-DD format and ISO strings with timezone
+    if (dateStr.includes('T')) {
+        // If it's an ISO string, extract just the date part
+        dateStr = dateStr.split('T')[0];
+    }
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(year, month - 1, day); // month is 0-indexed
+}
+
+// Format date for display in local timezone
+function formatEventDate(dateStr) {
+    const date = parseLocalDate(dateStr);
+    return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+    });
+}
+
+// Generate a unique student key (format: SKY-XXXX-XXXX)
+function generateStudentKey() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Removed ambiguous chars (0, O, 1, I)
+    let key = 'SKY-';
+    for (let i = 0; i < 4; i++) {
+        key += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    key += '-';
+    for (let i = 0; i < 4; i++) {
+        key += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+
+    // Ensure key is unique among existing students
+    const existingKeys = students.map(s => s.studentKey).filter(Boolean);
+    if (existingKeys.includes(key)) {
+        return generateStudentKey(); // Recursively generate if duplicate
+    }
+    return key;
+}
+
 // Initialize data structures
 let students = [];
 let events = [];
@@ -154,13 +195,20 @@ function renderStudents() {
         return;
     }
 
-    // Create table structure
+    // Create table structure with bulk actions bar
     container.innerHTML = `
+        <div class="bulk-actions-bar" id="bulkActionsBar" style="display: none;">
+            <span id="selectedCount">0 selected</span>
+            <button class="btn-sm" style="background: #e53e3e; color: white;" onclick="bulkDeleteStudents()">Delete Selected</button>
+            <button class="btn-sm" onclick="clearSelection()">Clear Selection</button>
+        </div>
         <div class="students-table-container">
             <table class="students-table">
                 <thead>
                     <tr>
+                        <th style="width: 40px;"><input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this.checked)" title="Select All"></th>
                         <th>Name</th>
+                        <th>Student Key</th>
                         <th>Email</th>
                         <th>Total Hours</th>
                         <th>Sessions</th>
@@ -183,8 +231,15 @@ function renderStudents() {
 // Create a student table row element
 function createStudentRow(student) {
     const row = document.createElement('tr');
+    // Generate key for existing students that don't have one
+    if (!student.studentKey) {
+        student.studentKey = generateStudentKey();
+        saveData();
+    }
     row.innerHTML = `
+        <td class="checkbox-cell"><input type="checkbox" class="student-checkbox" data-student-id="${student.id}" onchange="updateBulkSelection()"></td>
         <td class="student-name-cell">${escapeHtml(student.name)}</td>
+        <td class="student-key-cell"><code style="background: var(--bg-serene); padding: 4px 8px; border-radius: 4px; font-size: 0.85em;">${escapeHtml(student.studentKey)}</code></td>
         <td class="student-email-cell">${student.email ? escapeHtml(student.email) : '<em style="opacity: 0.5;">No email</em>'}</td>
         <td class="hours-cell">${student.totalHours.toFixed(1)} hrs</td>
         <td class="sessions-cell">${student.sessions} sessions</td>
@@ -290,10 +345,12 @@ async function addStudent(event) {
         return;
     }
 
+    const studentKey = generateStudentKey();
     const newStudent = {
         id: Date.now(),
         name: name,
         email: email,
+        studentKey: studentKey,
         sessions: 0,
         totalHours: 0
     };
@@ -389,14 +446,14 @@ async function addEvent(event) {
     }
 
     // Create event with the specified date and registration timestamp
-    // Use the date string directly to avoid timezone conversion issues
+    // Store the date string directly (YYYY-MM-DD) to avoid timezone issues
     const newEvent = {
         id: Date.now(),
         name: name,
         description: description,
         hours: hours,
         students: selectedStudents,
-        date: eventDate + 'T00:00:00.000Z', // Store as UTC midnight on the selected date
+        date: eventDate, // Store as plain date string (YYYY-MM-DD)
         registeredDate: new Date().toISOString()
     };
 
@@ -430,17 +487,14 @@ function viewEvents() {
         container.innerHTML = '<p style="text-align: center; padding: 20px;">No events recorded yet.</p>';
     } else {
         // Sort events by date (newest first)
-        const sortedEvents = [...events].sort((a, b) => new Date(b.date) - new Date(a.date));
+        const sortedEvents = [...events].sort((a, b) => parseLocalDate(b.date) - parseLocalDate(a.date));
 
         sortedEvents.forEach(event => {
             const eventDiv = document.createElement('div');
             eventDiv.className = 'event-item';
 
-            const eventDateStr = new Date(event.date).toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric'
-            });
+            // Use helper function to parse date in local timezone
+            const eventDateStr = formatEventDate(event.date);
 
             const registeredDateStr = event.registeredDate
                 ? new Date(event.registeredDate).toLocaleDateString('en-US', {
@@ -626,6 +680,66 @@ async function importData() {
     };
 
     input.click();
+}
+
+// Bulk selection functions
+function getSelectedStudentIds() {
+    const checkboxes = document.querySelectorAll('.student-checkbox:checked');
+    return Array.from(checkboxes).map(cb => parseInt(cb.dataset.studentId));
+}
+
+function updateBulkSelection() {
+    const selectedIds = getSelectedStudentIds();
+    const bulkBar = document.getElementById('bulkActionsBar');
+    const selectedCount = document.getElementById('selectedCount');
+    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+    const allCheckboxes = document.querySelectorAll('.student-checkbox');
+
+    if (selectedIds.length > 0) {
+        bulkBar.style.display = 'flex';
+        selectedCount.textContent = `${selectedIds.length} selected`;
+    } else {
+        bulkBar.style.display = 'none';
+    }
+
+    // Update select all checkbox state
+    if (allCheckboxes.length > 0) {
+        selectAllCheckbox.checked = selectedIds.length === allCheckboxes.length;
+        selectAllCheckbox.indeterminate = selectedIds.length > 0 && selectedIds.length < allCheckboxes.length;
+    }
+}
+
+function toggleSelectAll(checked) {
+    const checkboxes = document.querySelectorAll('.student-checkbox');
+    checkboxes.forEach(cb => cb.checked = checked);
+    updateBulkSelection();
+}
+
+function clearSelection() {
+    const checkboxes = document.querySelectorAll('.student-checkbox');
+    checkboxes.forEach(cb => cb.checked = false);
+    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+    if (selectAllCheckbox) selectAllCheckbox.checked = false;
+    updateBulkSelection();
+}
+
+async function bulkDeleteStudents() {
+    const selectedIds = getSelectedStudentIds();
+    if (selectedIds.length === 0) return;
+
+    const confirmed = await customConfirm(
+        `Are you sure you want to delete ${selectedIds.length} student(s)? This will remove all their hours and cannot be undone.`,
+        'Bulk Delete',
+        '🗑️'
+    );
+
+    if (confirmed) {
+        students = students.filter(s => !selectedIds.includes(s.id));
+        saveData();
+        renderStudents();
+        updateStatistics();
+        await customAlert(`${selectedIds.length} student(s) deleted successfully.`, 'Deleted', '✅');
+    }
 }
 
 // Utility function to escape HTML

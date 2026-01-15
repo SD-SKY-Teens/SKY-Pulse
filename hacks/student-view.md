@@ -298,16 +298,23 @@ permalink: /student-tracker/
 <div id="searchScreen" class="search-container">
   <div class="search-header">
     <h2>🎓 Student Hours Tracker</h2>
-    <p>Enter your username to view your hours</p>
+    <p>Enter your username and student key to view your hours</p>
   </div>
   <form class="search-form" onsubmit="searchStudent(event)">
     <div class="form-group-search">
       <label for="studentUsername">Username</label>
       <input type="text" id="studentUsername" required autocomplete="username" placeholder="e.g., John Doe">
     </div>
+    <div class="form-group-search">
+      <label for="studentKey">Student Key</label>
+      <input type="text" id="studentKey" required autocomplete="off" placeholder="e.g., SKY-XXXX-XXXX" style="text-transform: uppercase;">
+    </div>
     <div id="searchError" class="error-message" style="display: none;"></div>
     <button type="submit" class="search-btn">View My Hours</button>
   </form>
+  <p style="text-align: center; margin-top: 20px; font-size: 0.85em; color: var(--text-secondary);">
+    <small>Contact your administrator if you don't know your student key</small>
+  </p>
 </div>
 
 <!-- Student Profile Screen -->
@@ -355,10 +362,17 @@ permalink: /student-tracker/
     event.preventDefault();
 
     const username = document.getElementById('studentUsername').value.trim();
+    const studentKey = document.getElementById('studentKey').value.trim().toUpperCase();
     const errorDiv = document.getElementById('searchError');
 
     if (!username) {
       errorDiv.textContent = 'Please enter a username';
+      errorDiv.style.display = 'block';
+      return;
+    }
+
+    if (!studentKey) {
+      errorDiv.textContent = 'Please enter your student key';
       errorDiv.style.display = 'block';
       return;
     }
@@ -378,7 +392,14 @@ permalink: /student-tracker/
       return;
     }
 
-    // Student found - show profile
+    // Verify student key matches
+    if (!student.studentKey || student.studentKey.toUpperCase() !== studentKey) {
+      errorDiv.textContent = 'Invalid student key. Please check your key and try again.';
+      errorDiv.style.display = 'block';
+      return;
+    }
+
+    // Student found and key verified - show profile
     errorDiv.style.display = 'none';
     displayStudentProfile(student);
   }
@@ -409,14 +430,15 @@ permalink: /student-tracker/
     } else {
       // Sort events by date (newest first)
       const sortedEvents = [...studentEvents].sort((a, b) =>
-        new Date(b.date) - new Date(a.date)
+        parseLocalDate(b.date) - parseLocalDate(a.date)
       );
 
       sortedEvents.forEach(event => {
         const eventDiv = document.createElement('div');
         eventDiv.className = 'event-item';
 
-        const dateStr = new Date(event.date).toLocaleDateString('en-US', {
+        // Parse date in local timezone to avoid day shift
+        const dateStr = parseLocalDate(event.date).toLocaleDateString('en-US', {
           year: 'numeric',
           month: 'long',
           day: 'numeric'
@@ -443,6 +465,7 @@ permalink: /student-tracker/
     document.getElementById('searchScreen').style.display = 'block';
     document.getElementById('profileScreen').style.display = 'none';
     document.getElementById('studentUsername').value = '';
+    document.getElementById('studentKey').value = '';
     document.getElementById('searchError').style.display = 'none';
   }
 
@@ -450,5 +473,14 @@ permalink: /student-tracker/
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+  }
+
+  // Parse date string (YYYY-MM-DD) as local timezone, not UTC
+  function parseLocalDate(dateStr) {
+    if (dateStr.includes('T')) {
+      dateStr = dateStr.split('T')[0];
+    }
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(year, month - 1, day);
   }
 </script>

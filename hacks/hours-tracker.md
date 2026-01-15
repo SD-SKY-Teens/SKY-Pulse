@@ -607,6 +607,36 @@ permalink: /hours-tracker/
     color: var(--text-primary);
   }
 
+  /* Bulk Actions Bar */
+  .bulk-actions-bar {
+    display: none;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 20px;
+    background: linear-gradient(135deg, #e8c9a9 0%, #d4b8a8 100%);
+    border-radius: 10px;
+    margin-bottom: 16px;
+    box-shadow: 0 2px 8px var(--shadow-soft);
+  }
+
+  .bulk-actions-bar span {
+    font-weight: 500;
+    color: #5a3d28;
+  }
+
+  .checkbox-cell {
+    text-align: center;
+    width: 40px;
+  }
+
+  .checkbox-cell input,
+  .students-table th input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: var(--primary-deep);
+  }
+
   /* Custom Popup Styles */
   .custom-popup-overlay {
     display: none;
