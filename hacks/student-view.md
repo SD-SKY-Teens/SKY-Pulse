@@ -355,8 +355,75 @@ permalink: /student-tracker/
 </div>
 
 <script>
-  const STUDENTS_KEY = 'hoursTracker_students';
-  const EVENTS_KEY = 'hoursTracker_events';
+  const STUDENTS_KEY = 'ht_s_d8f3a2';
+  const EVENTS_KEY = 'ht_e_b7c1e9';
+  const BLOCKED_KEY = 'ht_b_7x2m1k';
+
+  // Generate browser fingerprint (must match admin version)
+  async function generateBrowserFingerprint() {
+    const components = [
+      navigator.userAgent,
+      navigator.language,
+      screen.width + 'x' + screen.height,
+      screen.colorDepth,
+      new Date().getTimezoneOffset(),
+      navigator.hardwareConcurrency || 'unknown',
+      navigator.platform,
+      await getCanvasFingerprint()
+    ];
+
+    const str = components.join('|');
+    const encoder = new TextEncoder();
+    const data = encoder.encode(str);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 32);
+  }
+
+  function getCanvasFingerprint() {
+    return new Promise((resolve) => {
+      try {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        ctx.textBaseline = 'top';
+        ctx.font = '14px Arial';
+        ctx.fillText('SKY-Pulse-FP', 2, 2);
+        resolve(canvas.toDataURL().substring(0, 50));
+      } catch (e) {
+        resolve('canvas-error');
+      }
+    });
+  }
+
+  // Check if current browser is blocked
+  async function isBlocked() {
+    const blockedList = JSON.parse(localStorage.getItem(BLOCKED_KEY) || '[]');
+    const fingerprint = await generateBrowserFingerprint();
+    return blockedList.some(b => b.fingerprint === fingerprint);
+  }
+
+  // Show blocked message and hide everything else
+  function showBlockedScreen() {
+    document.getElementById('searchScreen').innerHTML = `
+      <div class="search-header">
+        <h2 style="color: #e53e3e;">🚫 Access Denied</h2>
+        <p style="color: #c53030;">This browser has been blocked from accessing the Hours Tracker due to unauthorized activity.</p>
+        <p style="margin-top: 20px; font-size: 0.9em;">If you believe this is an error, please contact your administrator.</p>
+      </div>
+    `;
+  }
+
+  // Check block status on page load
+  async function checkBlockStatus() {
+    if (await isBlocked()) {
+      showBlockedScreen();
+      return false;
+    }
+    return true;
+  }
+
+  // Initialize - check block status first
+  document.addEventListener('DOMContentLoaded', checkBlockStatus);
 
   function searchStudent(event) {
     event.preventDefault();

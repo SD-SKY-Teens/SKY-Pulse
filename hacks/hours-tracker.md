@@ -808,6 +808,7 @@ permalink: /hours-tracker/
     <button class="btn-secondary" onclick="viewEvents()">📋 View Events</button>
     <button class="btn-secondary" onclick="exportData()">💾 Export Data</button>
     <button class="btn-secondary" onclick="importData()">📥 Import Data</button>
+    <button class="btn-secondary" onclick="viewSecurityLog()" style="background: #e53e3e;">🛡️ Security Log</button>
   </div>
 
   <!-- Search -->
@@ -884,6 +885,41 @@ permalink: /hours-tracker/
   </div>
 </div>
 
+<!-- Security Log Modal -->
+<div id="securityLogModal" class="modal">
+  <div class="modal-content" style="max-width: 800px;">
+    <span class="close" onclick="closeSecurityLogModal()">&times;</span>
+    <h2>🛡️ Security Log</h2>
+
+    <div style="margin: 20px 0;">
+      <h3 style="color: #e53e3e; margin-bottom: 12px;">Blocked Browsers (<span id="blockedCount">0</span>)</h3>
+      <p style="color: var(--text-secondary); font-size: 0.9em; margin-bottom: 16px;">
+        These browsers have been blocked due to detected tampering attempts.
+      </p>
+      <div id="blockedList" style="max-height: 250px; overflow-y: auto;">
+        <!-- Blocked users will be displayed here -->
+      </div>
+    </div>
+
+    <hr style="border: none; border-top: 1px solid var(--accent-gentle); margin: 24px 0;">
+
+    <div style="margin: 20px 0;">
+      <h3 style="color: #ed8936; margin-bottom: 12px;">Tamper Attempts Log (<span id="tamperCount">0</span>)</h3>
+      <p style="color: var(--text-secondary); font-size: 0.9em; margin-bottom: 16px;">
+        Recent unauthorized modification attempts (last 50).
+      </p>
+      <div id="tamperLogList" style="max-height: 250px; overflow-y: auto;">
+        <!-- Tamper log will be displayed here -->
+      </div>
+    </div>
+
+    <div style="margin-top: 24px; text-align: center;">
+      <button class="btn-secondary" onclick="clearTamperLog()">Clear Tamper Log</button>
+      <button class="btn-secondary" onclick="closeSecurityLogModal()">Close</button>
+    </div>
+  </div>
+</div>
+
 </div>
 <!-- End Dashboard Screen -->
 
@@ -948,6 +984,86 @@ function showLogin() {
     document.getElementById('dashboardScreen').style.display = 'none';
     document.getElementById('username').value = '';
     document.getElementById('password').value = '';
+}
+
+// Security Log Functions
+function viewSecurityLog() {
+    const blockedUsers = getBlockedUsers();
+    const tamperLog = getTamperLog();
+
+    document.getElementById('blockedCount').textContent = blockedUsers.length;
+    document.getElementById('tamperCount').textContent = tamperLog.length;
+
+    // Render blocked users
+    const blockedList = document.getElementById('blockedList');
+    if (blockedUsers.length === 0) {
+        blockedList.innerHTML = '<p style="text-align: center; padding: 20px; color: var(--text-secondary);">No blocked browsers.</p>';
+    } else {
+        blockedList.innerHTML = blockedUsers.map(b => `
+            <div style="background: var(--bg-serene); padding: 16px; margin: 8px 0; border-radius: 8px; border-left: 4px solid #e53e3e;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div>
+                        <div style="font-weight: 500; color: var(--text-primary); margin-bottom: 4px;">
+                            Fingerprint: <code style="background: var(--accent-gentle); padding: 2px 6px; border-radius: 4px;">${b.fingerprint.substring(0, 16)}...</code>
+                        </div>
+                        <div style="font-size: 0.85em; color: var(--text-secondary); margin: 4px 0;">
+                            Reason: ${escapeHtml(b.reason)}
+                        </div>
+                        <div style="font-size: 0.8em; color: var(--text-light);">
+                            Blocked: ${new Date(b.timestamp).toLocaleString()}
+                        </div>
+                        <div style="font-size: 0.75em; color: var(--text-light); margin-top: 4px; word-break: break-all;">
+                            ${escapeHtml(b.userAgent || 'Unknown browser')}
+                        </div>
+                    </div>
+                    <button class="btn-sm" style="background: #38a169; color: white;" onclick="handleUnblock('${b.fingerprint}')">Unblock</button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // Render tamper log (newest first)
+    const tamperLogList = document.getElementById('tamperLogList');
+    if (tamperLog.length === 0) {
+        tamperLogList.innerHTML = '<p style="text-align: center; padding: 20px; color: var(--text-secondary);">No tamper attempts recorded.</p>';
+    } else {
+        const sortedLog = [...tamperLog].reverse();
+        tamperLogList.innerHTML = sortedLog.map(t => `
+            <div style="background: var(--bg-serene); padding: 12px; margin: 6px 0; border-radius: 6px; border-left: 3px solid #ed8936;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 0.85em; color: var(--text-primary);">${escapeHtml(t.reason)}</span>
+                    <span style="font-size: 0.75em; color: var(--text-light);">${new Date(t.timestamp).toLocaleString()}</span>
+                </div>
+                <div style="font-size: 0.7em; color: var(--text-light); margin-top: 4px; word-break: break-all;">
+                    ${escapeHtml(t.userAgent || 'Unknown')}
+                </div>
+            </div>
+        `).join('');
+    }
+
+    document.getElementById('securityLogModal').style.display = 'block';
+}
+
+function closeSecurityLogModal() {
+    document.getElementById('securityLogModal').style.display = 'none';
+}
+
+async function handleUnblock(fingerprint) {
+    const confirmed = await customConfirm('Are you sure you want to unblock this browser?', 'Unblock Browser', '🔓');
+    if (confirmed) {
+        unblockUser(fingerprint);
+        viewSecurityLog(); // Refresh the list
+        await customAlert('Browser has been unblocked.', 'Success', '✅');
+    }
+}
+
+async function clearTamperLog() {
+    const confirmed = await customConfirm('Are you sure you want to clear the tamper log? This cannot be undone.', 'Clear Log', '🗑️');
+    if (confirmed) {
+        localStorage.removeItem('ht_t_9p4q8r');
+        viewSecurityLog(); // Refresh
+        await customAlert('Tamper log cleared.', 'Cleared', '✅');
+    }
 }
 
 // Check authentication on page load

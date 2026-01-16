@@ -1,10 +1,155 @@
 // Hours Tracker JavaScript
-// localStorage keys
-const STUDENTS_KEY = 'hoursTracker_students';
-const EVENTS_KEY = 'hoursTracker_events';
+// localStorage keys (obfuscated names)
+const STUDENTS_KEY = 'ht_s_d8f3a2';
+const EVENTS_KEY = 'ht_e_b7c1e9';
+const CHECKSUM_KEY = 'ht_v_4a9f2c';
+const BLOCKED_KEY = 'ht_b_7x2m1k';
+const TAMPER_LOG_KEY = 'ht_t_9p4q8r';
 
 // Session constant: 1 session = 0.5 hours
 const HOURS_PER_SESSION = 0.5;
+
+// Secret salt for checksum (makes it harder to forge)
+const CHECKSUM_SALT = 'SKY-Pulse-2024-xK9mP3';
+
+// Generate a browser fingerprint (not perfect but catches casual tamperers)
+async function generateBrowserFingerprint() {
+    const components = [
+        navigator.userAgent,
+        navigator.language,
+        screen.width + 'x' + screen.height,
+        screen.colorDepth,
+        new Date().getTimezoneOffset(),
+        navigator.hardwareConcurrency || 'unknown',
+        navigator.platform,
+        // Canvas fingerprint
+        await getCanvasFingerprint()
+    ];
+
+    const str = components.join('|');
+    const encoder = new TextEncoder();
+    const data = encoder.encode(str);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 32);
+}
+
+// Canvas fingerprint for additional uniqueness
+function getCanvasFingerprint() {
+    return new Promise((resolve) => {
+        try {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            ctx.textBaseline = 'top';
+            ctx.font = '14px Arial';
+            ctx.fillText('SKY-Pulse-FP', 2, 2);
+            resolve(canvas.toDataURL().substring(0, 50));
+        } catch (e) {
+            resolve('canvas-error');
+        }
+    });
+}
+
+// Check if current browser is blocked
+async function isBlocked() {
+    const blockedList = JSON.parse(localStorage.getItem(BLOCKED_KEY) || '[]');
+    const fingerprint = await generateBrowserFingerprint();
+    return blockedList.some(b => b.fingerprint === fingerprint);
+}
+
+// Block the current browser
+async function blockCurrentBrowser(reason) {
+    const blockedList = JSON.parse(localStorage.getItem(BLOCKED_KEY) || '[]');
+    const fingerprint = await generateBrowserFingerprint();
+
+    // Check if already blocked
+    if (!blockedList.some(b => b.fingerprint === fingerprint)) {
+        blockedList.push({
+            fingerprint: fingerprint,
+            reason: reason,
+            timestamp: new Date().toISOString(),
+            userAgent: navigator.userAgent.substring(0, 100)
+        });
+        localStorage.setItem(BLOCKED_KEY, JSON.stringify(blockedList));
+    }
+
+    // Log the tamper attempt
+    logTamperAttempt(reason);
+}
+
+// Log tamper attempts for admin review
+function logTamperAttempt(reason) {
+    const tamperLog = JSON.parse(localStorage.getItem(TAMPER_LOG_KEY) || '[]');
+    tamperLog.push({
+        timestamp: new Date().toISOString(),
+        reason: reason,
+        userAgent: navigator.userAgent.substring(0, 100),
+        url: window.location.href
+    });
+    // Keep only last 50 entries
+    while (tamperLog.length > 50) tamperLog.shift();
+    localStorage.setItem(TAMPER_LOG_KEY, JSON.stringify(tamperLog));
+}
+
+// Get blocked users list (for admin)
+function getBlockedUsers() {
+    return JSON.parse(localStorage.getItem(BLOCKED_KEY) || '[]');
+}
+
+// Unblock a user by fingerprint (for admin)
+function unblockUser(fingerprint) {
+    const blockedList = JSON.parse(localStorage.getItem(BLOCKED_KEY) || '[]');
+    const newList = blockedList.filter(b => b.fingerprint !== fingerprint);
+    localStorage.setItem(BLOCKED_KEY, JSON.stringify(newList));
+}
+
+// Get tamper log (for admin)
+function getTamperLog() {
+    return JSON.parse(localStorage.getItem(TAMPER_LOG_KEY) || '[]');
+}
+
+// Generate SHA-256 hash for tamper detection
+async function generateChecksum(data) {
+    const str = CHECKSUM_SALT + JSON.stringify(data) + CHECKSUM_SALT;
+    const encoder = new TextEncoder();
+    const dataBuffer = encoder.encode(str);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', dataBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Verify data integrity
+async function verifyDataIntegrity() {
+    const studentsData = localStorage.getItem(STUDENTS_KEY);
+    const eventsData = localStorage.getItem(EVENTS_KEY);
+    const storedChecksum = localStorage.getItem(CHECKSUM_KEY);
+
+    // If no data exists yet, it's valid (fresh start)
+    if (!studentsData && !eventsData) {
+        return { valid: true, reason: 'empty' };
+    }
+
+    // If data exists but no checksum, data was tampered or migrated
+    if (!storedChecksum) {
+        return { valid: false, reason: 'missing_checksum' };
+    }
+
+    const currentData = {
+        students: studentsData ? JSON.parse(studentsData) : [],
+        events: eventsData ? JSON.parse(eventsData) : []
+    };
+
+    const expectedChecksum = await generateChecksum(currentData);
+
+    if (expectedChecksum !== storedChecksum) {
+        return { valid: false, reason: 'checksum_mismatch' };
+    }
+
+    return { valid: true, reason: 'verified' };
+}
+
+// Flag to track if we've shown the tamper warning
+let tamperWarningShown = false;
 
 // Parse date string (YYYY-MM-DD) as local timezone, not UTC
 function parseLocalDate(dateStr) {
@@ -172,17 +317,48 @@ function loadData() {
     events = eventsData ? JSON.parse(eventsData) : [];
 }
 
-// Save data to localStorage
-function saveData() {
+// Save data to localStorage with checksum
+async function saveData() {
     localStorage.setItem(STUDENTS_KEY, JSON.stringify(students));
     localStorage.setItem(EVENTS_KEY, JSON.stringify(events));
+
+    // Generate and store checksum
+    const checksum = await generateChecksum({ students, events });
+    localStorage.setItem(CHECKSUM_KEY, checksum);
 }
 
-// Initialize the page
-function init() {
+// Initialize the page with integrity check
+async function init() {
+    // Verify data integrity before loading
+    const integrity = await verifyDataIntegrity();
+
+    if (!integrity.valid && !tamperWarningShown) {
+        tamperWarningShown = true;
+
+        if (integrity.reason === 'checksum_mismatch') {
+            // Real tampering detected - block this browser
+            await blockCurrentBrowser('checksum_mismatch');
+
+            const message = 'WARNING: Data tampering detected! The stored data has been modified outside of this application. This browser has been flagged for unauthorized modification attempts. The incident has been logged.';
+            setTimeout(async () => {
+                await customAlert(message, 'Security Violation', '🚫');
+            }, 500);
+        } else if (integrity.reason === 'missing_checksum') {
+            const message = 'Data integrity cannot be verified. This may be due to a system update or data migration. If you did not expect this, the data may have been tampered with.';
+            setTimeout(async () => {
+                await customAlert(message, 'Security Warning', '⚠️');
+            }, 500);
+        }
+    }
+
     loadData();
     renderStudents();
     updateStatistics();
+
+    // If data exists but checksum was missing, regenerate it (one-time migration)
+    if (!integrity.valid && integrity.reason === 'missing_checksum' && (students.length > 0 || events.length > 0)) {
+        await saveData(); // This will generate a new checksum
+    }
 }
 
 // Render all students
@@ -234,7 +410,7 @@ function createStudentRow(student) {
     // Generate key for existing students that don't have one
     if (!student.studentKey) {
         student.studentKey = generateStudentKey();
-        saveData();
+        saveData(); // Fire-and-forget for UI responsiveness
     }
     row.innerHTML = `
         <td class="checkbox-cell"><input type="checkbox" class="student-checkbox" data-student-id="${student.id}" onchange="updateBulkSelection()"></td>
@@ -256,24 +432,24 @@ function createStudentRow(student) {
 }
 
 // Add a session to a student
-function addSession(studentId) {
+async function addSession(studentId) {
     const student = students.find(s => s.id === studentId);
     if (student) {
         student.sessions += 1;
         student.totalHours = student.sessions * HOURS_PER_SESSION;
-        saveData();
+        await saveData();
         renderStudents();
         updateStatistics();
     }
 }
 
 // Remove a session from a student
-function removeSession(studentId) {
+async function removeSession(studentId) {
     const student = students.find(s => s.id === studentId);
     if (student && student.sessions > 0) {
         student.sessions -= 1;
         student.totalHours = student.sessions * HOURS_PER_SESSION;
-        saveData();
+        await saveData();
         renderStudents();
         updateStatistics();
     }
@@ -356,7 +532,7 @@ async function addStudent(event) {
     };
 
     students.push(newStudent);
-    saveData();
+    await saveData();
     renderStudents();
     updateStatistics();
     closeAddStudentModal();
@@ -374,7 +550,7 @@ async function editStudent(studentId) {
         const newEmail = await customPrompt('Enter new email (optional):', 'Edit Email', student.email || '', 'Email address', '📧');
         student.email = newEmail ? newEmail.trim() : '';
 
-        saveData();
+        await saveData();
         renderStudents();
     }
 }
@@ -387,7 +563,7 @@ async function deleteStudent(studentId) {
     const confirmed = await customConfirm(`Are you sure you want to delete ${student.name}? This will remove all their hours and cannot be undone.`, 'Delete Student', '🗑️');
     if (confirmed) {
         students = students.filter(s => s.id !== studentId);
-        saveData();
+        await saveData();
         renderStudents();
         updateStatistics();
     }
@@ -470,7 +646,7 @@ async function addEvent(event) {
         }
     });
 
-    saveData();
+    await saveData();
     renderStudents();
     updateStatistics();
     closeAddEventModal();
@@ -546,7 +722,7 @@ async function deleteEvent(eventId) {
 
         // Remove the event
         events = events.filter(e => e.id !== eventId);
-        saveData();
+        await saveData();
         renderStudents();
         viewEvents();
         updateStatistics();
@@ -660,7 +836,7 @@ async function importData() {
 
                     events = Array.from(eventMap.values());
 
-                    saveData();
+                    await saveData();
                     renderStudents();
                     updateStatistics();
 
@@ -735,7 +911,7 @@ async function bulkDeleteStudents() {
 
     if (confirmed) {
         students = students.filter(s => !selectedIds.includes(s.id));
-        saveData();
+        await saveData();
         renderStudents();
         updateStatistics();
         await customAlert(`${selectedIds.length} student(s) deleted successfully.`, 'Deleted', '✅');
