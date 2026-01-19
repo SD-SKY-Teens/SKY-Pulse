@@ -4,7 +4,7 @@
 // API Configuration
 const API_BASE_URL = window.location.hostname === 'localhost'
     ? 'http://localhost:5000/api'
-    : '/api';
+    : 'https://sky-backend-three.vercel.app/api';
 
 // Session constant: 1 session = 0.5 hours
 const HOURS_PER_SESSION = 0.5;

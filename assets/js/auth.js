@@ -7,7 +7,7 @@ const SESSION_KEY = 'ht_session_data';
 // API Configuration
 const API_BASE_URL = window.location.hostname === 'localhost'
     ? 'http://localhost:5000/api'
-    : '/api';
+    : 'https://sky-backend-three.vercel.app/api';
 
 // Check if user is authenticated
 function isAuthenticated() {
