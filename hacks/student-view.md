@@ -339,17 +339,17 @@ permalink: /student-tracker/
 
     <div class="stats-grid">
       <div class="stat-card">
-        <div class="stat-icon">clock</div>
+        <div class="stat-icon">&#128337;</div>
         <div class="stat-value" id="profileHours">0</div>
         <div class="stat-label">Total Hours</div>
       </div>
       <div class="stat-card">
-        <div class="stat-icon">book</div>
+        <div class="stat-icon">&#128214;</div>
         <div class="stat-value" id="profileSessions">0</div>
         <div class="stat-label">Sessions</div>
       </div>
       <div class="stat-card">
-        <div class="stat-icon">star</div>
+        <div class="stat-icon">&#11088;</div>
         <div class="stat-value" id="profileEvents">0</div>
         <div class="stat-label">Events Attended</div>
       </div>
