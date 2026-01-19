@@ -1,0 +1,20 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/index.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "api/index.py"
+    }
+  ],
+  "env": {
+    "SECRET_KEY": "@sky-pulse-secret",
+    "ADMIN_USERNAME": "@sky-pulse-admin-username",
+    "ADMIN_PASSWORD_HASH": "@sky-pulse-admin-password-hash"
+  }
+}

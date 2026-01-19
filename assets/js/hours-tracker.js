@@ -1,200 +1,71 @@
-// Hours Tracker JavaScript
-// localStorage keys (obfuscated names)
-const STUDENTS_KEY = 'ht_s_d8f3a2';
-const EVENTS_KEY = 'ht_e_b7c1e9';
-const CHECKSUM_KEY = 'ht_v_4a9f2c';
-const BLOCKED_KEY = 'ht_b_7x2m1k';
-const TAMPER_LOG_KEY = 'ht_t_9p4q8r';
+// Hours Tracker JavaScript - API Version
+// Connects to Flask backend for global data access
+
+// API Configuration
+const API_BASE_URL = window.location.hostname === 'localhost'
+    ? 'http://localhost:5000/api'
+    : '/api';
 
 // Session constant: 1 session = 0.5 hours
 const HOURS_PER_SESSION = 0.5;
 
-// Secret salt for checksum (makes it harder to forge)
-const CHECKSUM_SALT = 'SKY-Pulse-2024-xK9mP3';
+// Auth token storage
+const TOKEN_KEY = 'ht_auth_token';
 
-// Generate a browser fingerprint (not perfect but catches casual tamperers)
-async function generateBrowserFingerprint() {
-    const components = [
-        navigator.userAgent,
-        navigator.language,
-        screen.width + 'x' + screen.height,
-        screen.colorDepth,
-        new Date().getTimezoneOffset(),
-        navigator.hardwareConcurrency || 'unknown',
-        navigator.platform,
-        // Canvas fingerprint
-        await getCanvasFingerprint()
-    ];
-
-    const str = components.join('|');
-    const encoder = new TextEncoder();
-    const data = encoder.encode(str);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 32);
-}
-
-// Canvas fingerprint for additional uniqueness
-function getCanvasFingerprint() {
-    return new Promise((resolve) => {
-        try {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            ctx.textBaseline = 'top';
-            ctx.font = '14px Arial';
-            ctx.fillText('SKY-Pulse-FP', 2, 2);
-            resolve(canvas.toDataURL().substring(0, 50));
-        } catch (e) {
-            resolve('canvas-error');
-        }
-    });
-}
-
-// Check if current browser is blocked
-async function isBlocked() {
-    const blockedList = JSON.parse(localStorage.getItem(BLOCKED_KEY) || '[]');
-    const fingerprint = await generateBrowserFingerprint();
-    return blockedList.some(b => b.fingerprint === fingerprint);
-}
-
-// Block the current browser
-async function blockCurrentBrowser(reason) {
-    const blockedList = JSON.parse(localStorage.getItem(BLOCKED_KEY) || '[]');
-    const fingerprint = await generateBrowserFingerprint();
-
-    // Check if already blocked
-    if (!blockedList.some(b => b.fingerprint === fingerprint)) {
-        blockedList.push({
-            fingerprint: fingerprint,
-            reason: reason,
-            timestamp: new Date().toISOString(),
-            userAgent: navigator.userAgent.substring(0, 100)
-        });
-        localStorage.setItem(BLOCKED_KEY, JSON.stringify(blockedList));
-    }
-
-    // Log the tamper attempt
-    logTamperAttempt(reason);
-}
-
-// Log tamper attempts for admin review
-function logTamperAttempt(reason) {
-    const tamperLog = JSON.parse(localStorage.getItem(TAMPER_LOG_KEY) || '[]');
-    tamperLog.push({
-        timestamp: new Date().toISOString(),
-        reason: reason,
-        userAgent: navigator.userAgent.substring(0, 100),
-        url: window.location.href
-    });
-    // Keep only last 50 entries
-    while (tamperLog.length > 50) tamperLog.shift();
-    localStorage.setItem(TAMPER_LOG_KEY, JSON.stringify(tamperLog));
-}
-
-// Get blocked users list (for admin)
-function getBlockedUsers() {
-    return JSON.parse(localStorage.getItem(BLOCKED_KEY) || '[]');
-}
-
-// Unblock a user by fingerprint (for admin)
-function unblockUser(fingerprint) {
-    const blockedList = JSON.parse(localStorage.getItem(BLOCKED_KEY) || '[]');
-    const newList = blockedList.filter(b => b.fingerprint !== fingerprint);
-    localStorage.setItem(BLOCKED_KEY, JSON.stringify(newList));
-}
-
-// Get tamper log (for admin)
-function getTamperLog() {
-    return JSON.parse(localStorage.getItem(TAMPER_LOG_KEY) || '[]');
-}
-
-// Generate SHA-256 hash for tamper detection
-async function generateChecksum(data) {
-    const str = CHECKSUM_SALT + JSON.stringify(data) + CHECKSUM_SALT;
-    const encoder = new TextEncoder();
-    const dataBuffer = encoder.encode(str);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', dataBuffer);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
-// Verify data integrity
-async function verifyDataIntegrity() {
-    const studentsData = localStorage.getItem(STUDENTS_KEY);
-    const eventsData = localStorage.getItem(EVENTS_KEY);
-    const storedChecksum = localStorage.getItem(CHECKSUM_KEY);
-
-    // If no data exists yet, it's valid (fresh start)
-    if (!studentsData && !eventsData) {
-        return { valid: true, reason: 'empty' };
-    }
-
-    // If data exists but no checksum, data was tampered or migrated
-    if (!storedChecksum) {
-        return { valid: false, reason: 'missing_checksum' };
-    }
-
-    const currentData = {
-        students: studentsData ? JSON.parse(studentsData) : [],
-        events: eventsData ? JSON.parse(eventsData) : []
-    };
-
-    const expectedChecksum = await generateChecksum(currentData);
-
-    if (expectedChecksum !== storedChecksum) {
-        return { valid: false, reason: 'checksum_mismatch' };
-    }
-
-    return { valid: true, reason: 'verified' };
-}
-
-// Flag to track if we've shown the tamper warning
-let tamperWarningShown = false;
-
-// Parse date string (YYYY-MM-DD) as local timezone, not UTC
-function parseLocalDate(dateStr) {
-    // Handle both YYYY-MM-DD format and ISO strings with timezone
-    if (dateStr.includes('T')) {
-        // If it's an ISO string, extract just the date part
-        dateStr = dateStr.split('T')[0];
-    }
-    const [year, month, day] = dateStr.split('-').map(Number);
-    return new Date(year, month - 1, day); // month is 0-indexed
-}
-
-// Format date for display in local timezone
-function formatEventDate(dateStr) {
-    const date = parseLocalDate(dateStr);
-    return date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
-    });
-}
-
-// Generate a unique student key (format: SKY-XXXX-XXXX)
-function generateStudentKey() {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Removed ambiguous chars (0, O, 1, I)
-    let key = 'SKY-';
-    for (let i = 0; i < 4; i++) {
-        key += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    key += '-';
-    for (let i = 0; i < 4; i++) {
-        key += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-
-    // Ensure key is unique among existing students
-    const existingKeys = students.map(s => s.studentKey).filter(Boolean);
-    if (existingKeys.includes(key)) {
-        return generateStudentKey(); // Recursively generate if duplicate
-    }
-    return key;
-}
-
-// Initialize data structures
+// In-memory data cache
 let students = [];
 let events = [];
+
+// Get stored auth token
+function getAuthToken() {
+    return localStorage.getItem(TOKEN_KEY);
+}
+
+// Set auth token
+function setAuthToken(token) {
+    localStorage.setItem(TOKEN_KEY, token);
+}
+
+// Clear auth token
+function clearAuthToken() {
+    localStorage.removeItem(TOKEN_KEY);
+}
+
+// API request helper with authentication
+async function apiRequest(endpoint, options = {}) {
+    const token = getAuthToken();
+    const headers = {
+        'Content-Type': 'application/json',
+        ...options.headers
+    };
+
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+            ...options,
+            headers
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            if (response.status === 401) {
+                // Token expired or invalid
+                clearAuthToken();
+                showLogin();
+            }
+            throw new Error(data.error || 'API request failed');
+        }
+
+        return data;
+    } catch (error) {
+        console.error('API Error:', error);
+        throw error;
+    }
+}
 
 // Custom Popup System
 function showCustomPopup(options) {
@@ -208,7 +79,7 @@ function showCustomPopup(options) {
         const buttonsContainer = document.getElementById('popupButtons');
 
         // Set icon
-        icon.textContent = options.icon || '💭';
+        icon.textContent = options.icon || '';
 
         // Set title
         title.textContent = options.title || '';
@@ -267,7 +138,7 @@ function showCustomPopup(options) {
 }
 
 // Custom Alert
-async function customAlert(message, title = 'Notice', icon = '✨') {
+async function customAlert(message, title = 'Notice', icon = '') {
     await showCustomPopup({
         icon: icon,
         title: title,
@@ -279,7 +150,7 @@ async function customAlert(message, title = 'Notice', icon = '✨') {
 }
 
 // Custom Confirm
-async function customConfirm(message, title = 'Confirm', icon = '❓') {
+async function customConfirm(message, title = 'Confirm', icon = '') {
     return await showCustomPopup({
         icon: icon,
         title: title,
@@ -292,7 +163,7 @@ async function customConfirm(message, title = 'Confirm', icon = '❓') {
 }
 
 // Custom Prompt
-async function customPrompt(message, title = 'Input', defaultValue = '', placeholder = '', icon = '✏️') {
+async function customPrompt(message, title = 'Input', defaultValue = '', placeholder = '', icon = '') {
     return await showCustomPopup({
         icon: icon,
         title: title,
@@ -308,57 +179,46 @@ async function customPrompt(message, title = 'Input', defaultValue = '', placeho
     });
 }
 
-// Load data from localStorage
-function loadData() {
-    const studentsData = localStorage.getItem(STUDENTS_KEY);
-    const eventsData = localStorage.getItem(EVENTS_KEY);
-
-    students = studentsData ? JSON.parse(studentsData) : [];
-    events = eventsData ? JSON.parse(eventsData) : [];
-}
-
-// Save data to localStorage with checksum
-async function saveData() {
-    localStorage.setItem(STUDENTS_KEY, JSON.stringify(students));
-    localStorage.setItem(EVENTS_KEY, JSON.stringify(events));
-
-    // Generate and store checksum
-    const checksum = await generateChecksum({ students, events });
-    localStorage.setItem(CHECKSUM_KEY, checksum);
-}
-
-// Initialize the page with integrity check
-async function init() {
-    // Verify data integrity before loading
-    const integrity = await verifyDataIntegrity();
-
-    if (!integrity.valid && !tamperWarningShown) {
-        tamperWarningShown = true;
-
-        if (integrity.reason === 'checksum_mismatch') {
-            // Real tampering detected - block this browser
-            await blockCurrentBrowser('checksum_mismatch');
-
-            const message = 'WARNING: Data tampering detected! The stored data has been modified outside of this application. This browser has been flagged for unauthorized modification attempts. The incident has been logged.';
-            setTimeout(async () => {
-                await customAlert(message, 'Security Violation', '🚫');
-            }, 500);
-        } else if (integrity.reason === 'missing_checksum') {
-            const message = 'Data integrity cannot be verified. This may be due to a system update or data migration. If you did not expect this, the data may have been tampered with.';
-            setTimeout(async () => {
-                await customAlert(message, 'Security Warning', '⚠️');
-            }, 500);
-        }
+// Parse date string (YYYY-MM-DD) as local timezone, not UTC
+function parseLocalDate(dateStr) {
+    if (!dateStr) return new Date();
+    if (dateStr.includes('T')) {
+        dateStr = dateStr.split('T')[0];
     }
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(year, month - 1, day);
+}
 
-    loadData();
+// Format date for display in local timezone
+function formatEventDate(dateStr) {
+    const date = parseLocalDate(dateStr);
+    return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+    });
+}
+
+// Load data from API
+async function loadData() {
+    try {
+        const [studentsData, eventsData] = await Promise.all([
+            apiRequest('/students'),
+            apiRequest('/events')
+        ]);
+        students = studentsData;
+        events = eventsData;
+    } catch (error) {
+        console.error('Failed to load data:', error);
+        await customAlert('Failed to load data from server. Please try again.', 'Error', '!');
+    }
+}
+
+// Initialize the page
+async function init() {
+    await loadData();
     renderStudents();
     updateStatistics();
-
-    // If data exists but checksum was missing, regenerate it (one-time migration)
-    if (!integrity.valid && integrity.reason === 'missing_checksum' && (students.length > 0 || events.length > 0)) {
-        await saveData(); // This will generate a new checksum
-    }
 }
 
 // Render all students
@@ -407,22 +267,17 @@ function renderStudents() {
 // Create a student table row element
 function createStudentRow(student) {
     const row = document.createElement('tr');
-    // Generate key for existing students that don't have one
-    if (!student.studentKey) {
-        student.studentKey = generateStudentKey();
-        saveData(); // Fire-and-forget for UI responsiveness
-    }
     row.innerHTML = `
         <td class="checkbox-cell"><input type="checkbox" class="student-checkbox" data-student-id="${student.id}" onchange="updateBulkSelection()"></td>
         <td class="student-name-cell">${escapeHtml(student.name)}</td>
-        <td class="student-key-cell"><code style="background: var(--bg-serene); padding: 4px 8px; border-radius: 4px; font-size: 0.85em;">${escapeHtml(student.studentKey)}</code></td>
+        <td class="student-key-cell"><code style="background: var(--bg-serene); padding: 4px 8px; border-radius: 4px; font-size: 0.85em;">${escapeHtml(student.student_key)}</code></td>
         <td class="student-email-cell">${student.email ? escapeHtml(student.email) : '<em style="opacity: 0.5;">No email</em>'}</td>
-        <td class="hours-cell">${student.totalHours.toFixed(1)} hrs</td>
-        <td class="sessions-cell">${student.sessions} sessions</td>
+        <td class="hours-cell">${(student.total_hours || 0).toFixed(1)} hrs</td>
+        <td class="sessions-cell">${student.sessions || 0} sessions</td>
         <td class="actions-cell">
             <div class="btn-group" style="justify-content: flex-end;">
                 <button class="btn-sm btn-add" onclick="addSession(${student.id})" title="Add Session">+ Session</button>
-                <button class="btn-sm btn-remove" onclick="removeSession(${student.id})" ${student.sessions === 0 ? 'disabled' : ''} title="Remove Session">- Session</button>
+                <button class="btn-sm btn-remove" onclick="removeSession(${student.id})" ${(student.sessions || 0) === 0 ? 'disabled' : ''} title="Remove Session">- Session</button>
                 <button class="btn-sm" style="background: #ed8936; color: white;" onclick="editStudent(${student.id})" title="Edit Student">Edit</button>
                 <button class="btn-sm" style="background: #e53e3e; color: white;" onclick="deleteStudent(${student.id})" title="Delete Student">Delete</button>
             </div>
@@ -433,33 +288,39 @@ function createStudentRow(student) {
 
 // Add a session to a student
 async function addSession(studentId) {
-    const student = students.find(s => s.id === studentId);
-    if (student) {
-        student.sessions += 1;
-        student.totalHours = student.sessions * HOURS_PER_SESSION;
-        await saveData();
+    try {
+        await apiRequest(`/students/${studentId}/sessions`, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'add' })
+        });
+        await loadData();
         renderStudents();
         updateStatistics();
+    } catch (error) {
+        await customAlert('Failed to add session: ' + error.message, 'Error', '!');
     }
 }
 
 // Remove a session from a student
 async function removeSession(studentId) {
-    const student = students.find(s => s.id === studentId);
-    if (student && student.sessions > 0) {
-        student.sessions -= 1;
-        student.totalHours = student.sessions * HOURS_PER_SESSION;
-        await saveData();
+    try {
+        await apiRequest(`/students/${studentId}/sessions`, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'remove' })
+        });
+        await loadData();
         renderStudents();
         updateStatistics();
+    } catch (error) {
+        await customAlert('Failed to remove session: ' + error.message, 'Error', '!');
     }
 }
 
 // Update statistics display
 function updateStatistics() {
     const totalStudents = students.length;
-    const totalSessions = students.reduce((sum, s) => sum + s.sessions, 0);
-    const totalHours = students.reduce((sum, s) => sum + s.totalHours, 0);
+    const totalSessions = students.reduce((sum, s) => sum + (s.sessions || 0), 0);
+    const totalHours = students.reduce((sum, s) => sum + (s.total_hours || 0), 0);
     const totalEvents = events.length;
 
     document.getElementById('totalStudents').textContent = totalStudents;
@@ -517,25 +378,23 @@ async function addStudent(event) {
     const email = document.getElementById('studentEmail').value.trim();
 
     if (!name) {
-        await customAlert('Please enter a student name', 'Missing Information', '⚠️');
+        await customAlert('Please enter a student name', 'Missing Information', '!');
         return;
     }
 
-    const studentKey = generateStudentKey();
-    const newStudent = {
-        id: Date.now(),
-        name: name,
-        email: email,
-        studentKey: studentKey,
-        sessions: 0,
-        totalHours: 0
-    };
+    try {
+        await apiRequest('/students', {
+            method: 'POST',
+            body: JSON.stringify({ name, email })
+        });
 
-    students.push(newStudent);
-    await saveData();
-    renderStudents();
-    updateStatistics();
-    closeAddStudentModal();
+        await loadData();
+        renderStudents();
+        updateStatistics();
+        closeAddStudentModal();
+    } catch (error) {
+        await customAlert('Failed to add student: ' + error.message, 'Error', '!');
+    }
 }
 
 // Edit student
@@ -543,15 +402,24 @@ async function editStudent(studentId) {
     const student = students.find(s => s.id === studentId);
     if (!student) return;
 
-    const newName = await customPrompt('Enter new name:', 'Edit Student', student.name, 'Student name', '👤');
+    const newName = await customPrompt('Enter new name:', 'Edit Student', student.name, 'Student name', '');
     if (newName && newName.trim()) {
-        student.name = newName.trim();
+        const newEmail = await customPrompt('Enter new email (optional):', 'Edit Email', student.email || '', 'Email address', '');
 
-        const newEmail = await customPrompt('Enter new email (optional):', 'Edit Email', student.email || '', 'Email address', '📧');
-        student.email = newEmail ? newEmail.trim() : '';
+        try {
+            await apiRequest(`/students/${studentId}`, {
+                method: 'PUT',
+                body: JSON.stringify({
+                    name: newName.trim(),
+                    email: newEmail ? newEmail.trim() : ''
+                })
+            });
 
-        await saveData();
-        renderStudents();
+            await loadData();
+            renderStudents();
+        } catch (error) {
+            await customAlert('Failed to update student: ' + error.message, 'Error', '!');
+        }
     }
 }
 
@@ -560,12 +428,16 @@ async function deleteStudent(studentId) {
     const student = students.find(s => s.id === studentId);
     if (!student) return;
 
-    const confirmed = await customConfirm(`Are you sure you want to delete ${student.name}? This will remove all their hours and cannot be undone.`, 'Delete Student', '🗑️');
+    const confirmed = await customConfirm(`Are you sure you want to delete ${student.name}? This will remove all their hours and cannot be undone.`, 'Delete Student', '');
     if (confirmed) {
-        students = students.filter(s => s.id !== studentId);
-        await saveData();
-        renderStudents();
-        updateStatistics();
+        try {
+            await apiRequest(`/students/${studentId}`, { method: 'DELETE' });
+            await loadData();
+            renderStudents();
+            updateStatistics();
+        } catch (error) {
+            await customAlert('Failed to delete student: ' + error.message, 'Error', '!');
+        }
     }
 }
 
@@ -584,7 +456,7 @@ function populateStudentCheckboxes() {
         div.className = 'checkbox-item';
         div.innerHTML = `
             <input type="checkbox" id="student_${student.id}" value="${student.id}">
-            <label for="student_${student.id}">${escapeHtml(student.name)} (${student.totalHours.toFixed(1)} hrs)</label>
+            <label for="student_${student.id}">${escapeHtml(student.name)} (${(student.total_hours || 0).toFixed(1)} hrs)</label>
         `;
         container.appendChild(div);
     });
@@ -600,58 +472,45 @@ async function addEvent(event) {
     const eventDate = document.getElementById('eventDate').value;
 
     if (!name || !hours || !eventDate) {
-        await customAlert('Please fill in all required fields', 'Missing Information', '⚠️');
+        await customAlert('Please fill in all required fields', 'Missing Information', '!');
         return;
     }
 
     // Get selected students
-    const selectedStudents = [];
+    const studentIds = [];
     students.forEach(student => {
         const checkbox = document.getElementById(`student_${student.id}`);
         if (checkbox && checkbox.checked) {
-            selectedStudents.push({
-                id: student.id,
-                name: student.name
-            });
+            studentIds.push(student.id);
         }
     });
 
-    if (selectedStudents.length === 0) {
-        await customAlert('Please select at least one student', 'No Students Selected', '⚠️');
+    if (studentIds.length === 0) {
+        await customAlert('Please select at least one student', 'No Students Selected', '!');
         return;
     }
 
-    // Create event with the specified date and registration timestamp
-    // Store the date string directly (YYYY-MM-DD) to avoid timezone issues
-    const newEvent = {
-        id: Date.now(),
-        name: name,
-        description: description,
-        hours: hours,
-        students: selectedStudents,
-        date: eventDate, // Store as plain date string (YYYY-MM-DD)
-        registeredDate: new Date().toISOString()
-    };
+    try {
+        await apiRequest('/events', {
+            method: 'POST',
+            body: JSON.stringify({
+                name,
+                description,
+                hours,
+                event_date: eventDate,
+                student_ids: studentIds
+            })
+        });
 
-    events.push(newEvent);
+        await loadData();
+        renderStudents();
+        updateStatistics();
+        closeAddEventModal();
 
-    // Award hours to selected students
-    selectedStudents.forEach(selectedStudent => {
-        const student = students.find(s => s.id === selectedStudent.id);
-        if (student) {
-            // Convert hours to sessions and add them
-            const sessionsToAdd = Math.round(hours / HOURS_PER_SESSION);
-            student.sessions += sessionsToAdd;
-            student.totalHours = student.sessions * HOURS_PER_SESSION;
-        }
-    });
-
-    await saveData();
-    renderStudents();
-    updateStatistics();
-    closeAddEventModal();
-
-    await customAlert(`Event "${name}" created successfully! ${hours} hours awarded to ${selectedStudents.length} student(s).`, 'Success', '🎉');
+        await customAlert(`Event "${name}" created successfully! ${hours} hours awarded to ${studentIds.length} student(s).`, 'Success', '');
+    } catch (error) {
+        await customAlert('Failed to create event: ' + error.message, 'Error', '!');
+    }
 }
 
 // View events
@@ -663,17 +522,16 @@ function viewEvents() {
         container.innerHTML = '<p style="text-align: center; padding: 20px;">No events recorded yet.</p>';
     } else {
         // Sort events by date (newest first)
-        const sortedEvents = [...events].sort((a, b) => parseLocalDate(b.date) - parseLocalDate(a.date));
+        const sortedEvents = [...events].sort((a, b) => parseLocalDate(b.event_date) - parseLocalDate(a.event_date));
 
         sortedEvents.forEach(event => {
             const eventDiv = document.createElement('div');
             eventDiv.className = 'event-item';
 
-            // Use helper function to parse date in local timezone
-            const eventDateStr = formatEventDate(event.date);
+            const eventDateStr = formatEventDate(event.event_date);
 
-            const registeredDateStr = event.registeredDate
-                ? new Date(event.registeredDate).toLocaleDateString('en-US', {
+            const registeredDateStr = event.registered_date
+                ? new Date(event.registered_date).toLocaleDateString('en-US', {
                     year: 'numeric',
                     month: 'short',
                     day: 'numeric',
@@ -681,6 +539,8 @@ function viewEvents() {
                     minute: '2-digit'
                 })
                 : 'N/A';
+
+            const studentNames = event.students ? event.students.map(s => escapeHtml(s.name)).join(', ') : 'None';
 
             eventDiv.innerHTML = `
                 <div class="event-header">
@@ -691,7 +551,7 @@ function viewEvents() {
                 <div style="font-size: 0.9em; color: #718096; margin-top: 10px;">
                     <strong>Event Date:</strong> ${eventDateStr}<br>
                     <strong>Registered:</strong> ${registeredDateStr}<br>
-                    <strong>Students (${event.students.length}):</strong> ${event.students.map(s => escapeHtml(s.name)).join(', ')}
+                    <strong>Students (${event.students ? event.students.length : 0}):</strong> ${studentNames}
                 </div>
                 <button class="btn-sm" style="background: #e53e3e; color: white; margin-top: 10px;" onclick="deleteEvent(${event.id})">Delete Event</button>
             `;
@@ -707,46 +567,40 @@ async function deleteEvent(eventId) {
     const event = events.find(e => e.id === eventId);
     if (!event) return;
 
-    const confirmed = await customConfirm(`Are you sure you want to delete this event? This will revoke ${event.hours} hours from ${event.students.length} student(s).`, 'Delete Event', '🗑️');
-    if (confirmed) {
-        // Revoke hours from students who received them from this event
-        event.students.forEach(eventStudent => {
-            const student = students.find(s => s.id === eventStudent.id);
-            if (student) {
-                // Convert hours to sessions and remove them
-                const sessionsToRemove = Math.round(event.hours / HOURS_PER_SESSION);
-                student.sessions = Math.max(0, student.sessions - sessionsToRemove);
-                student.totalHours = student.sessions * HOURS_PER_SESSION;
-            }
-        });
+    const studentCount = event.students ? event.students.length : 0;
+    const confirmed = await customConfirm(`Are you sure you want to delete this event? This will revoke ${event.hours} hours from ${studentCount} student(s).`, 'Delete Event', '');
 
-        // Remove the event
-        events = events.filter(e => e.id !== eventId);
-        await saveData();
-        renderStudents();
-        viewEvents();
-        updateStatistics();
+    if (confirmed) {
+        try {
+            await apiRequest(`/events/${eventId}`, { method: 'DELETE' });
+            await loadData();
+            renderStudents();
+            viewEvents();
+            updateStatistics();
+        } catch (error) {
+            await customAlert('Failed to delete event: ' + error.message, 'Error', '!');
+        }
     }
 }
 
 // Export data
-function exportData() {
-    const data = {
-        students: students,
-        events: events,
-        exportDate: new Date().toISOString()
-    };
+async function exportData() {
+    try {
+        const data = await apiRequest('/export');
 
-    const dataStr = JSON.stringify(data, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
+        const dataStr = JSON.stringify(data, null, 2);
+        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(dataBlob);
 
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `hours-tracker-export-${new Date().toISOString().split('T')[0]}.json`;
-    link.click();
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `hours-tracker-export-${new Date().toISOString().split('T')[0]}.json`;
+        link.click();
 
-    URL.revokeObjectURL(url);
+        URL.revokeObjectURL(url);
+    } catch (error) {
+        await customAlert('Failed to export data: ' + error.message, 'Error', '!');
+    }
 }
 
 // Import data
@@ -768,88 +622,26 @@ async function importData() {
                     throw new Error('Invalid data format');
                 }
 
-                // Calculate merge statistics
-                const importedStudents = data.students || [];
-                const importedEvents = data.events || [];
+                const confirmed = await customConfirm(
+                    `Import ${data.students.length} students and ${data.events ? data.events.length : 0} events? Existing data with matching keys will be updated.`,
+                    'Import Data',
+                    ''
+                );
 
-                let newStudents = 0;
-                let updatedStudents = 0;
-                let newEvents = 0;
-                let updatedEvents = 0;
-
-                // Check for duplicates
-                importedStudents.forEach(importStudent => {
-                    const exists = students.find(s => s.id === importStudent.id);
-                    if (exists) {
-                        updatedStudents++;
-                    } else {
-                        newStudents++;
-                    }
-                });
-
-                importedEvents.forEach(importEvent => {
-                    const exists = events.find(e => e.id === importEvent.id);
-                    if (exists) {
-                        updatedEvents++;
-                    } else {
-                        newEvents++;
-                    }
-                });
-
-                // Create confirmation message
-                let message = `Import ${importedStudents.length} students and ${importedEvents.length} events?\n\n`;
-                if (newStudents > 0) message += `• ${newStudents} new student(s)\n`;
-                if (updatedStudents > 0) message += `• ${updatedStudents} student(s) will be updated\n`;
-                if (newEvents > 0) message += `• ${newEvents} new event(s)\n`;
-                if (updatedEvents > 0) message += `• ${updatedEvents} event(s) will be updated\n`;
-                message += `\nExisting duplicates will be replaced with imported versions.`;
-
-                const confirmed = await customConfirm(message, 'Import Data', '📥');
                 if (confirmed) {
-                    // Merge students - replace duplicates, add new ones
-                    const studentMap = new Map();
-
-                    // Add existing students first
-                    students.forEach(student => {
-                        studentMap.set(student.id, student);
+                    const result = await apiRequest('/import', {
+                        method: 'POST',
+                        body: JSON.stringify(data)
                     });
 
-                    // Import students (will replace duplicates)
-                    importedStudents.forEach(student => {
-                        studentMap.set(student.id, student);
-                    });
-
-                    students = Array.from(studentMap.values());
-
-                    // Merge events - replace duplicates, add new ones
-                    const eventMap = new Map();
-
-                    // Add existing events first
-                    events.forEach(event => {
-                        eventMap.set(event.id, event);
-                    });
-
-                    // Import events (will replace duplicates)
-                    importedEvents.forEach(event => {
-                        eventMap.set(event.id, event);
-                    });
-
-                    events = Array.from(eventMap.values());
-
-                    await saveData();
+                    await loadData();
                     renderStudents();
                     updateStatistics();
 
-                    let resultMessage = 'Data imported successfully!\n\n';
-                    if (newStudents > 0) resultMessage += `✓ Added ${newStudents} new student(s)\n`;
-                    if (updatedStudents > 0) resultMessage += `✓ Updated ${updatedStudents} student(s)\n`;
-                    if (newEvents > 0) resultMessage += `✓ Added ${newEvents} new event(s)\n`;
-                    if (updatedEvents > 0) resultMessage += `✓ Updated ${updatedEvents} event(s)`;
-
-                    await customAlert(resultMessage, 'Import Complete', '✅');
+                    await customAlert(result.message, 'Import Complete', '');
                 }
             } catch (error) {
-                await customAlert('Error importing data: ' + error.message, 'Import Error', '❌');
+                await customAlert('Error importing data: ' + error.message, 'Import Error', '!');
             }
         };
         reader.readAsText(file);
@@ -906,20 +698,29 @@ async function bulkDeleteStudents() {
     const confirmed = await customConfirm(
         `Are you sure you want to delete ${selectedIds.length} student(s)? This will remove all their hours and cannot be undone.`,
         'Bulk Delete',
-        '🗑️'
+        ''
     );
 
     if (confirmed) {
-        students = students.filter(s => !selectedIds.includes(s.id));
-        await saveData();
-        renderStudents();
-        updateStatistics();
-        await customAlert(`${selectedIds.length} student(s) deleted successfully.`, 'Deleted', '✅');
+        try {
+            await apiRequest('/students/bulk-delete', {
+                method: 'POST',
+                body: JSON.stringify({ ids: selectedIds })
+            });
+
+            await loadData();
+            renderStudents();
+            updateStatistics();
+            await customAlert(`${selectedIds.length} student(s) deleted successfully.`, 'Deleted', '');
+        } catch (error) {
+            await customAlert('Failed to delete students: ' + error.message, 'Error', '!');
+        }
     }
 }
 
 // Utility function to escape HTML
 function escapeHtml(text) {
+    if (!text) return '';
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
@@ -932,5 +733,4 @@ window.onclick = function(event) {
     }
 }
 
-// Initialize on page load
-document.addEventListener('DOMContentLoaded', init);
+// Initialize on page load - handled by hours-tracker.md

@@ -1,60 +1,27 @@
-// Authentication System for Hours Tracker
-// Admin credentials are stored in localStorage with hashed passwords
+// Authentication System for Hours Tracker - API Version
+// Connects to Flask backend for authentication
 
-const AUTH_KEY = 'hoursTracker_auth';
-const ADMINS_KEY = 'hoursTracker_admins';
-const SESSION_KEY = 'hoursTracker_session';
+const TOKEN_KEY = 'ht_auth_token';
+const SESSION_KEY = 'ht_session_data';
 
-// Initialize default admin if none exists
-function initializeAuth() {
-    const admins = getAdmins();
-    if (admins.length === 0) {
-        // Create default admin account
-        const defaultAdmin = {
-            username: 'admin',
-            password: hashPassword('5udh@r5h@n_Kr1y@'),
-            name: 'Administrator',
-            createdAt: new Date().toISOString()
-        };
-        admins.push(defaultAdmin);
-        saveAdmins(admins);
-        console.log('Default admin created: username=admin');
-    }
-}
-
-// Simple hash function (for demo - in production use proper hashing)
-function hashPassword(password) {
-    let hash = 0;
-    for (let i = 0; i < password.length; i++) {
-        const char = password.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
-        hash = hash & hash;
-    }
-    return hash.toString(36);
-}
-
-// Get admins from localStorage
-function getAdmins() {
-    const data = localStorage.getItem(ADMINS_KEY);
-    return data ? JSON.parse(data) : [];
-}
-
-// Save admins to localStorage
-function saveAdmins(admins) {
-    localStorage.setItem(ADMINS_KEY, JSON.stringify(admins));
-}
+// API Configuration
+const API_BASE_URL = window.location.hostname === 'localhost'
+    ? 'http://localhost:5000/api'
+    : '/api';
 
 // Check if user is authenticated
 function isAuthenticated() {
+    const token = localStorage.getItem(TOKEN_KEY);
     const session = localStorage.getItem(SESSION_KEY);
-    if (!session) return false;
+
+    if (!token || !session) return false;
 
     try {
         const sessionData = JSON.parse(session);
-        const now = new Date().getTime();
+        const expiresAt = new Date(sessionData.expires_at);
 
-        // Session expires after 8 hours
-        if (now - sessionData.timestamp > 8 * 60 * 60 * 1000) {
+        // Check if token has expired
+        if (new Date() > expiresAt) {
             logout();
             return false;
         }
@@ -65,30 +32,58 @@ function isAuthenticated() {
     }
 }
 
-// Login function
-function login(username, password) {
-    const admins = getAdmins();
-    const hashedPassword = hashPassword(password);
+// Login function - calls API
+async function login(username, password) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/auth/login`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ username, password })
+        });
 
-    const admin = admins.find(a =>
-        a.username === username && a.password === hashedPassword
-    );
+        const data = await response.json();
 
-    if (admin) {
-        const session = {
-            username: admin.username,
-            name: admin.name,
-            timestamp: new Date().getTime()
-        };
-        localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+        if (!response.ok) {
+            console.error('Login failed:', data.error);
+            return false;
+        }
+
+        // Store token and session data
+        localStorage.setItem(TOKEN_KEY, data.token);
+        localStorage.setItem(SESSION_KEY, JSON.stringify({
+            username: data.username,
+            name: data.username,
+            expires_at: data.expires_at
+        }));
+
         return true;
+    } catch (error) {
+        console.error('Login error:', error);
+        return false;
     }
-
-    return false;
 }
 
 // Logout function
-function logout() {
+async function logout() {
+    const token = localStorage.getItem(TOKEN_KEY);
+
+    if (token) {
+        try {
+            await fetch(`${API_BASE_URL}/auth/logout`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+        } catch (error) {
+            console.error('Logout error:', error);
+        }
+    }
+
+    localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(SESSION_KEY);
 }
 
@@ -98,46 +93,27 @@ function getCurrentSession() {
     return session ? JSON.parse(session) : null;
 }
 
-// Add new admin (only accessible by existing admin)
-function addAdmin(username, password, name) {
-    if (!isAuthenticated()) return false;
+// Get auth token
+function getAuthToken() {
+    return localStorage.getItem(TOKEN_KEY);
+}
 
-    const admins = getAdmins();
+// Verify token with server
+async function verifyToken() {
+    const token = localStorage.getItem(TOKEN_KEY);
 
-    // Check if username already exists
-    if (admins.find(a => a.username === username)) {
+    if (!token) return false;
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/auth/verify`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        return response.ok;
+    } catch (error) {
+        console.error('Token verification error:', error);
         return false;
     }
-
-    const newAdmin = {
-        username: username,
-        password: hashPassword(password),
-        name: name,
-        createdAt: new Date().toISOString()
-    };
-
-    admins.push(newAdmin);
-    saveAdmins(admins);
-    return true;
 }
-
-// Change password
-function changePassword(username, oldPassword, newPassword) {
-    if (!isAuthenticated()) return false;
-
-    const admins = getAdmins();
-    const admin = admins.find(a =>
-        a.username === username && a.password === hashPassword(oldPassword)
-    );
-
-    if (admin) {
-        admin.password = hashPassword(newPassword);
-        saveAdmins(admins);
-        return true;
-    }
-
-    return false;
-}
-
-// Initialize auth on load
-initializeAuth();

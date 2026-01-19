@@ -937,28 +937,42 @@ permalink: /hours-tracker/
 <script src="{{ '/assets/js/hours-tracker.js' | relative_url }}"></script>
 
 <script>
-// Handle login
-function handleLogin(event) {
+// Handle login - now async for API calls
+async function handleLogin(event) {
     event.preventDefault();
 
     const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
     const errorDiv = document.getElementById('loginError');
+    const loginBtn = document.querySelector('.login-btn');
 
-    if (login(username, password)) {
-        errorDiv.style.display = 'none';
-        showDashboard();
-    } else {
-        errorDiv.textContent = 'Invalid username or password';
+    // Disable button during login
+    loginBtn.disabled = true;
+    loginBtn.textContent = 'Logging in...';
+
+    try {
+        const success = await login(username, password);
+        if (success) {
+            errorDiv.style.display = 'none';
+            showDashboard();
+        } else {
+            errorDiv.textContent = 'Invalid username or password';
+            errorDiv.style.display = 'block';
+        }
+    } catch (error) {
+        errorDiv.textContent = 'Connection error. Please try again.';
         errorDiv.style.display = 'block';
+    } finally {
+        loginBtn.disabled = false;
+        loginBtn.textContent = 'Login';
     }
 }
 
 // Handle logout
 async function handleLogout() {
-    const confirmed = await customConfirm('Are you sure you want to logout?', 'Logout', '🚪');
+    const confirmed = await customConfirm('Are you sure you want to logout?', 'Logout', '');
     if (confirmed) {
-        logout();
+        await logout();
         showLogin();
     }
 }
@@ -986,83 +1000,59 @@ function showLogin() {
     document.getElementById('password').value = '';
 }
 
-// Security Log Functions
-function viewSecurityLog() {
-    const blockedUsers = getBlockedUsers();
-    const tamperLog = getTamperLog();
+// Security Log Functions - fetches from API
+async function viewSecurityLog() {
+    try {
+        const logs = await apiRequest('/security/log');
 
-    document.getElementById('blockedCount').textContent = blockedUsers.length;
-    document.getElementById('tamperCount').textContent = tamperLog.length;
+        document.getElementById('blockedCount').textContent = '0';
+        document.getElementById('tamperCount').textContent = logs.length;
 
-    // Render blocked users
-    const blockedList = document.getElementById('blockedList');
-    if (blockedUsers.length === 0) {
-        blockedList.innerHTML = '<p style="text-align: center; padding: 20px; color: var(--text-secondary);">No blocked browsers.</p>';
-    } else {
-        blockedList.innerHTML = blockedUsers.map(b => `
-            <div style="background: var(--bg-serene); padding: 16px; margin: 8px 0; border-radius: 8px; border-left: 4px solid #e53e3e;">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                    <div>
-                        <div style="font-weight: 500; color: var(--text-primary); margin-bottom: 4px;">
-                            Fingerprint: <code style="background: var(--accent-gentle); padding: 2px 6px; border-radius: 4px;">${b.fingerprint.substring(0, 16)}...</code>
-                        </div>
-                        <div style="font-size: 0.85em; color: var(--text-secondary); margin: 4px 0;">
-                            Reason: ${escapeHtml(b.reason)}
-                        </div>
-                        <div style="font-size: 0.8em; color: var(--text-light);">
-                            Blocked: ${new Date(b.timestamp).toLocaleString()}
-                        </div>
-                        <div style="font-size: 0.75em; color: var(--text-light); margin-top: 4px; word-break: break-all;">
-                            ${escapeHtml(b.userAgent || 'Unknown browser')}
-                        </div>
+        // No blocked browsers in API version
+        const blockedList = document.getElementById('blockedList');
+        blockedList.innerHTML = '<p style="text-align: center; padding: 20px; color: var(--text-secondary);">Security managed server-side.</p>';
+
+        // Render security log (newest first)
+        const tamperLogList = document.getElementById('tamperLogList');
+        if (logs.length === 0) {
+            tamperLogList.innerHTML = '<p style="text-align: center; padding: 20px; color: var(--text-secondary);">No security events recorded.</p>';
+        } else {
+            tamperLogList.innerHTML = logs.map(t => `
+                <div style="background: var(--bg-serene); padding: 12px; margin: 6px 0; border-radius: 6px; border-left: 3px solid #ed8936;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: 0.85em; color: var(--text-primary);">${escapeHtml(t.event_type)}</span>
+                        <span style="font-size: 0.75em; color: var(--text-light);">${new Date(t.created_at).toLocaleString()}</span>
                     </div>
-                    <button class="btn-sm" style="background: #38a169; color: white;" onclick="handleUnblock('${b.fingerprint}')">Unblock</button>
+                    <div style="font-size: 0.8em; color: var(--text-secondary); margin-top: 4px;">
+                        ${escapeHtml(t.details || '')}
+                    </div>
+                    <div style="font-size: 0.7em; color: var(--text-light); margin-top: 4px; word-break: break-all;">
+                        ${escapeHtml(t.user_agent || 'Unknown')}
+                    </div>
                 </div>
-            </div>
-        `).join('');
-    }
+            `).join('');
+        }
 
-    // Render tamper log (newest first)
-    const tamperLogList = document.getElementById('tamperLogList');
-    if (tamperLog.length === 0) {
-        tamperLogList.innerHTML = '<p style="text-align: center; padding: 20px; color: var(--text-secondary);">No tamper attempts recorded.</p>';
-    } else {
-        const sortedLog = [...tamperLog].reverse();
-        tamperLogList.innerHTML = sortedLog.map(t => `
-            <div style="background: var(--bg-serene); padding: 12px; margin: 6px 0; border-radius: 6px; border-left: 3px solid #ed8936;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <span style="font-size: 0.85em; color: var(--text-primary);">${escapeHtml(t.reason)}</span>
-                    <span style="font-size: 0.75em; color: var(--text-light);">${new Date(t.timestamp).toLocaleString()}</span>
-                </div>
-                <div style="font-size: 0.7em; color: var(--text-light); margin-top: 4px; word-break: break-all;">
-                    ${escapeHtml(t.userAgent || 'Unknown')}
-                </div>
-            </div>
-        `).join('');
+        document.getElementById('securityLogModal').style.display = 'block';
+    } catch (error) {
+        await customAlert('Failed to load security log: ' + error.message, 'Error', '!');
     }
-
-    document.getElementById('securityLogModal').style.display = 'block';
 }
 
 function closeSecurityLogModal() {
     document.getElementById('securityLogModal').style.display = 'none';
 }
 
-async function handleUnblock(fingerprint) {
-    const confirmed = await customConfirm('Are you sure you want to unblock this browser?', 'Unblock Browser', '🔓');
-    if (confirmed) {
-        unblockUser(fingerprint);
-        viewSecurityLog(); // Refresh the list
-        await customAlert('Browser has been unblocked.', 'Success', '✅');
-    }
-}
-
 async function clearTamperLog() {
-    const confirmed = await customConfirm('Are you sure you want to clear the tamper log? This cannot be undone.', 'Clear Log', '🗑️');
+    const confirmed = await customConfirm('Are you sure you want to clear the security log? This cannot be undone.', 'Clear Log', '');
     if (confirmed) {
-        localStorage.removeItem('ht_t_9p4q8r');
-        viewSecurityLog(); // Refresh
-        await customAlert('Tamper log cleared.', 'Cleared', '✅');
+        try {
+            await apiRequest('/security/log', { method: 'DELETE' });
+            viewSecurityLog(); // Refresh
+            await customAlert('Security log cleared.', 'Cleared', '');
+        } catch (error) {
+            await customAlert('Failed to clear log: ' + error.message, 'Error', '!');
+        }
     }
 }
 

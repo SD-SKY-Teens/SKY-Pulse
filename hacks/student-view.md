@@ -126,6 +126,12 @@ permalink: /student-tracker/
     box-shadow: 0 4px 12px var(--shadow-soft);
   }
 
+  .search-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+  }
+
   .error-message {
     background: var(--warning-soft);
     color: #8b5a3c;
@@ -292,25 +298,31 @@ permalink: /student-tracker/
     color: var(--text-secondary);
     font-style: italic;
   }
+
+  .loading {
+    text-align: center;
+    padding: 20px;
+    color: var(--text-secondary);
+  }
 </style>
 
 <!-- Search Screen -->
 <div id="searchScreen" class="search-container">
   <div class="search-header">
-    <h2>🎓 Student Hours Tracker</h2>
-    <p>Enter your username and student key to view your hours</p>
+    <h2>Student Hours Tracker</h2>
+    <p>Enter your name and student key to view your hours</p>
   </div>
   <form class="search-form" onsubmit="searchStudent(event)">
     <div class="form-group-search">
-      <label for="studentUsername">Username</label>
-      <input type="text" id="studentUsername" required autocomplete="username" placeholder="e.g., John Doe">
+      <label for="studentUsername">Your Name</label>
+      <input type="text" id="studentUsername" required autocomplete="name" placeholder="e.g., John Doe">
     </div>
     <div class="form-group-search">
       <label for="studentKey">Student Key</label>
       <input type="text" id="studentKey" required autocomplete="off" placeholder="e.g., SKY-XXXX-XXXX" style="text-transform: uppercase;">
     </div>
     <div id="searchError" class="error-message" style="display: none;"></div>
-    <button type="submit" class="search-btn">View My Hours</button>
+    <button type="submit" class="search-btn" id="searchBtn">View My Hours</button>
   </form>
   <p style="text-align: center; margin-top: 20px; font-size: 0.85em; color: var(--text-secondary);">
     <small>Contact your administrator if you don't know your student key</small>
@@ -327,113 +339,49 @@ permalink: /student-tracker/
 
     <div class="stats-grid">
       <div class="stat-card">
-        <div class="stat-icon">⏰</div>
+        <div class="stat-icon">clock</div>
         <div class="stat-value" id="profileHours">0</div>
         <div class="stat-label">Total Hours</div>
       </div>
       <div class="stat-card">
-        <div class="stat-icon">📚</div>
+        <div class="stat-icon">book</div>
         <div class="stat-value" id="profileSessions">0</div>
         <div class="stat-label">Sessions</div>
       </div>
       <div class="stat-card">
-        <div class="stat-icon">🎉</div>
+        <div class="stat-icon">star</div>
         <div class="stat-value" id="profileEvents">0</div>
         <div class="stat-label">Events Attended</div>
       </div>
     </div>
 
     <div class="events-section" id="eventsSection">
-      <div class="section-title">📋 Event History</div>
+      <div class="section-title">Event History</div>
       <div id="eventsList">
         <!-- Events will be populated here -->
       </div>
     </div>
 
-    <button class="back-btn" onclick="backToSearch()">← Search Again</button>
+    <button class="back-btn" onclick="backToSearch()">Back to Search</button>
   </div>
 </div>
 
 <script>
-  const STUDENTS_KEY = 'ht_s_d8f3a2';
-  const EVENTS_KEY = 'ht_e_b7c1e9';
-  const BLOCKED_KEY = 'ht_b_7x2m1k';
+  // API Configuration
+  const API_BASE_URL = window.location.hostname === 'localhost'
+    ? 'http://localhost:5000/api'
+    : '/api';
 
-  // Generate browser fingerprint (must match admin version)
-  async function generateBrowserFingerprint() {
-    const components = [
-      navigator.userAgent,
-      navigator.language,
-      screen.width + 'x' + screen.height,
-      screen.colorDepth,
-      new Date().getTimezoneOffset(),
-      navigator.hardwareConcurrency || 'unknown',
-      navigator.platform,
-      await getCanvasFingerprint()
-    ];
-
-    const str = components.join('|');
-    const encoder = new TextEncoder();
-    const data = encoder.encode(str);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 32);
-  }
-
-  function getCanvasFingerprint() {
-    return new Promise((resolve) => {
-      try {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        ctx.textBaseline = 'top';
-        ctx.font = '14px Arial';
-        ctx.fillText('SKY-Pulse-FP', 2, 2);
-        resolve(canvas.toDataURL().substring(0, 50));
-      } catch (e) {
-        resolve('canvas-error');
-      }
-    });
-  }
-
-  // Check if current browser is blocked
-  async function isBlocked() {
-    const blockedList = JSON.parse(localStorage.getItem(BLOCKED_KEY) || '[]');
-    const fingerprint = await generateBrowserFingerprint();
-    return blockedList.some(b => b.fingerprint === fingerprint);
-  }
-
-  // Show blocked message and hide everything else
-  function showBlockedScreen() {
-    document.getElementById('searchScreen').innerHTML = `
-      <div class="search-header">
-        <h2 style="color: #e53e3e;">🚫 Access Denied</h2>
-        <p style="color: #c53030;">This browser has been blocked from accessing the Hours Tracker due to unauthorized activity.</p>
-        <p style="margin-top: 20px; font-size: 0.9em;">If you believe this is an error, please contact your administrator.</p>
-      </div>
-    `;
-  }
-
-  // Check block status on page load
-  async function checkBlockStatus() {
-    if (await isBlocked()) {
-      showBlockedScreen();
-      return false;
-    }
-    return true;
-  }
-
-  // Initialize - check block status first
-  document.addEventListener('DOMContentLoaded', checkBlockStatus);
-
-  function searchStudent(event) {
+  async function searchStudent(event) {
     event.preventDefault();
 
-    const username = document.getElementById('studentUsername').value.trim();
+    const name = document.getElementById('studentUsername').value.trim();
     const studentKey = document.getElementById('studentKey').value.trim().toUpperCase();
     const errorDiv = document.getElementById('searchError');
+    const searchBtn = document.getElementById('searchBtn');
 
-    if (!username) {
-      errorDiv.textContent = 'Please enter a username';
+    if (!name) {
+      errorDiv.textContent = 'Please enter your name';
       errorDiv.style.display = 'block';
       return;
     }
@@ -444,60 +392,62 @@ permalink: /student-tracker/
       return;
     }
 
-    // Load students from localStorage
-    const studentsData = localStorage.getItem(STUDENTS_KEY);
-    const students = studentsData ? JSON.parse(studentsData) : [];
-
-    // Find student by name (case-insensitive)
-    const student = students.find(s =>
-      s.name.toLowerCase() === username.toLowerCase()
-    );
-
-    if (!student) {
-      errorDiv.textContent = 'Student not found. Please check the username and try again.';
-      errorDiv.style.display = 'block';
-      return;
-    }
-
-    // Verify student key matches
-    if (!student.studentKey || student.studentKey.toUpperCase() !== studentKey) {
-      errorDiv.textContent = 'Invalid student key. Please check your key and try again.';
-      errorDiv.style.display = 'block';
-      return;
-    }
-
-    // Student found and key verified - show profile
+    // Disable button during search
+    searchBtn.disabled = true;
+    searchBtn.textContent = 'Loading...';
     errorDiv.style.display = 'none';
-    displayStudentProfile(student);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/public/student`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: name,
+          student_key: studentKey
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        errorDiv.textContent = data.error || 'Student not found. Please check your name and key.';
+        errorDiv.style.display = 'block';
+        return;
+      }
+
+      // Success - display student profile
+      displayStudentProfile(data.student, data.events);
+
+    } catch (error) {
+      console.error('Search error:', error);
+      errorDiv.textContent = 'Connection error. Please try again.';
+      errorDiv.style.display = 'block';
+    } finally {
+      searchBtn.disabled = false;
+      searchBtn.textContent = 'View My Hours';
+    }
   }
 
-  function displayStudentProfile(student) {
-    // Load events from localStorage
-    const eventsData = localStorage.getItem(EVENTS_KEY);
-    const allEvents = eventsData ? JSON.parse(eventsData) : [];
-
-    // Find events this student participated in
-    const studentEvents = allEvents.filter(event =>
-      event.students.some(s => s.id === student.id)
-    );
-
+  function displayStudentProfile(student, events) {
     // Update profile information
     document.getElementById('profileName').textContent = student.name;
     document.getElementById('profileEmail').textContent = student.email || '';
-    document.getElementById('profileHours').textContent = student.totalHours.toFixed(1);
-    document.getElementById('profileSessions').textContent = student.sessions;
-    document.getElementById('profileEvents').textContent = studentEvents.length;
+    document.getElementById('profileHours').textContent = (student.total_hours || 0).toFixed(1);
+    document.getElementById('profileSessions').textContent = student.sessions || 0;
+    document.getElementById('profileEvents').textContent = events.length;
 
     // Display events
     const eventsList = document.getElementById('eventsList');
     eventsList.innerHTML = '';
 
-    if (studentEvents.length === 0) {
+    if (events.length === 0) {
       eventsList.innerHTML = '<div class="no-events">No events attended yet</div>';
     } else {
       // Sort events by date (newest first)
-      const sortedEvents = [...studentEvents].sort((a, b) =>
-        parseLocalDate(b.date) - parseLocalDate(a.date)
+      const sortedEvents = [...events].sort((a, b) =>
+        parseLocalDate(b.event_date) - parseLocalDate(a.event_date)
       );
 
       sortedEvents.forEach(event => {
@@ -505,7 +455,7 @@ permalink: /student-tracker/
         eventDiv.className = 'event-item';
 
         // Parse date in local timezone to avoid day shift
-        const dateStr = parseLocalDate(event.date).toLocaleDateString('en-US', {
+        const dateStr = parseLocalDate(event.event_date).toLocaleDateString('en-US', {
           year: 'numeric',
           month: 'long',
           day: 'numeric'
@@ -517,7 +467,7 @@ permalink: /student-tracker/
             <div class="event-hours">${event.hours} hrs</div>
           </div>
           ${event.description ? `<div class="event-description">${escapeHtml(event.description)}</div>` : ''}
-          <div class="event-date">📅 ${dateStr}</div>
+          <div class="event-date">${dateStr}</div>
         `;
         eventsList.appendChild(eventDiv);
       });
@@ -537,6 +487,7 @@ permalink: /student-tracker/
   }
 
   function escapeHtml(text) {
+    if (!text) return '';
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
@@ -544,6 +495,7 @@ permalink: /student-tracker/
 
   // Parse date string (YYYY-MM-DD) as local timezone, not UTC
   function parseLocalDate(dateStr) {
+    if (!dateStr) return new Date();
     if (dateStr.includes('T')) {
       dateStr = dateStr.split('T')[0];
     }
