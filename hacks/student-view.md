@@ -370,7 +370,7 @@ permalink: /student-tracker/
   // API Configuration
   const API_BASE_URL = window.location.hostname === 'localhost'
     ? 'http://localhost:5000/api'
-    : '/api';
+    : 'https://sky-backend-three.vercel.app/api';
 
   async function searchStudent(event) {
     event.preventDefault();
