@@ -1,16 +1,9 @@
 // Hours Tracker JavaScript - API Version
 // Connects to Flask backend for global data access
-
-// API Configuration
-const API_BASE_URL = window.location.hostname === 'localhost'
-    ? 'http://localhost:5000/api'
-    : 'https://sky-backend-three.vercel.app/api';
+// Note: API_BASE_URL and TOKEN_KEY are defined in auth.js which must be loaded first
 
 // Session constant: 1 session = 0.5 hours
 const HOURS_PER_SESSION = 0.5;
-
-// Auth token storage
-const TOKEN_KEY = 'ht_auth_token';
 
 // In-memory data cache
 let students = [];
